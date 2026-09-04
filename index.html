@@ -942,6 +942,8 @@
             matchingProspectos.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'socio-card is-prospecto';
+                let m = sociosData.find(s => (s.dni === p.dni && p.dni !== '') || (s.telefono === p.telefono && p.telefono !== ''));
+                let btnPrincipalCard = m ? `<button class='btn-micro btn-micro-blue' style='background:var(--accent);color:#fff;border:none;padding:6px 12px;' onclick='inscribirPruebaEnSocioExistente(${p.id}, ${m.id}); event.stopPropagation();'>➕ Inscribir a este taller</button>` : `<button class='btn-micro btn-micro-blue' style='background:var(--accent);color:#fff;border:none;padding:6px 12px;' onclick='convertirPruebaEnSocio(${p.id}); event.stopPropagation();'>➕ Asociar</button>`;
                 card.innerHTML = `
                     <div class='socio-card-header'>
                         <div class='socio-clickable-area'>
@@ -953,7 +955,7 @@
                         </div>
                         <div class='socio-right-panel'>
                             <div class='admin-micro-actions' onclick='event.stopPropagation()'>
-                                <button class='btn-micro btn-micro-blue' style='background:var(--accent);color:#fff;border:none;padding:6px 12px;' onclick='convertirPruebaEnSocio(${p.id}); event.stopPropagation();'>➕ Asociar</button>
+                                ${btnPrincipalCard}
                                 <button class='btn-micro btn-micro-red' style='padding:6px 12px;' onclick='archivarPrueba(${p.id}); event.stopPropagation();'>✖ Archivar</button>
                             </div>
                         </div>
@@ -1102,38 +1104,40 @@
             let diaStr = hoy.getDate().toString().padStart(2, '0');
             let fechaStr = `${diaStr}/${mesStr}/${hoy.getFullYear()}`;
 
-            // 1. Guardamos en la lista de pruebas/notificaciones
+            // Solo guardamos el prospecto en la lista de pruebas/notificaciones.
+            // NO se crea un socio real hasta que se confirme (Asociar / Inscribir a taller).
             datosPruebas.push({ id: hoy.getTime(), nombre: pNom, dni: pDni, telefono: pTel, correo: pCor, taller: tallerStr, fecha: fechaStr, estado: 'pendiente' }); 
-            
-            // 2. CREAMOS AUTOMÁTICAMENTE EL REGISTRO DE SOCIO REAL (CLASE DE PRUEBA)
-            let nextId = sociosData.length > 0 ? Math.max(...sociosData.map(s => s.id)) + 1 : 1;
-            let pagosObj = {}; mesesLista.forEach(m => pagosObj[m] = "");
-            
-            let nuevoSocioPrueba = {
-                id: nextId, nombre: pNom, esCD: false, formaPago: "EFECTIVO", talleres: [...seleccion], pagos: pagosObj,
-                fechaCreacionTs: hoy.getTime(), fechaCreacionStr: fechaStr,
-                domicilio: "No registrado", dni: pDni || "No registrado",
-                telefono: pTel || "No registrado", correo: pCor || "No registrado",
-                inactivoManual: false, reactivadoManual: false, profesorDe: [], esTutor: false, linkPdf: "", usuarioMP: ""
-            };
-            sociosData.push(nuevoSocioPrueba);
 
             document.getElementById('modalPrueba').classList.remove('open'); 
             actualizarBadgeNotificaciones(); 
             await guardarBovedaEnNube(true); 
-            await guardarSocioEnNube(nuevoSocioPrueba, "crear");
             renderizarTodo(); 
-            alert(`✅ Visita de prueba registrada para ${pNom}. Ya aparece en la tabla general.`);
+            alert(`✅ Visita de prueba registrada para ${pNom}. Figura en la campanita de pendientes.`);
         }
 
         function abrirPanelNotificaciones() {
             let c = document.getElementById('lista-notificaciones'), p = datosPruebas.filter(x => x.estado === 'pendiente'), h = '';
             if(p.length === 0) c.innerHTML = '<p style="text-align:center; padding: 20px; color: #7f8c8d;">No hay pendientes.</p>';
-            else { p.forEach(x => { let m = sociosData.find(s => (s.dni === x.dni && x.dni !== '') || (s.telefono === x.telefono && x.telefono !== '')); let aH = m ? `<div style="color:var(--verde); font-weight: bold; margin-bottom: 5px;">✅ Match socio #${m.id}</div>` : ''; h += `<div style="border:1px solid var(--borde); border-radius: 6px; padding:15px; margin-bottom:10px; background: #fdfdfd;">${aH}<h4 style="color: var(--primary); margin-bottom: 5px;">${x.nombre}</h4><p style="font-size: 0.8rem; color: #555;">${x.taller} - ${x.fecha}</p><div style="margin-top: 10px; display: flex; gap: 10px;"><button class="btn-micro btn-micro-blue" style="background: var(--accent); color: white; border: none; padding: 6px 12px;" onclick="convertirPruebaEnSocio(${x.id})">➕ Asociar</button> <button class="btn-micro btn-micro-red" style="padding: 6px 12px;" onclick="archivarPrueba(${x.id})">✖ Archivar</button></div></div>`; }); c.innerHTML = h; }
+            else { p.forEach(x => { let m = sociosData.find(s => (s.dni === x.dni && x.dni !== '') || (s.telefono === x.telefono && x.telefono !== '')); let aH = m ? `<div style="color:var(--verde); font-weight: bold; margin-bottom: 5px;">✅ Match socio #${m.id}</div>` : ''; let btnPrincipal = m ? `<button class="btn-micro btn-micro-blue" style="background: var(--accent); color: white; border: none; padding: 6px 12px;" onclick="inscribirPruebaEnSocioExistente(${x.id}, ${m.id})">➕ Inscribir a este taller</button>` : `<button class="btn-micro btn-micro-blue" style="background: var(--accent); color: white; border: none; padding: 6px 12px;" onclick="convertirPruebaEnSocio(${x.id})">➕ Asociar</button>`; h += `<div style="border:1px solid var(--borde); border-radius: 6px; padding:15px; margin-bottom:10px; background: #fdfdfd;">${aH}<h4 style="color: var(--primary); margin-bottom: 5px;">${x.nombre}</h4><p style="font-size: 0.8rem; color: #555;">${x.taller} - ${x.fecha}</p><div style="margin-top: 10px; display: flex; gap: 10px;">${btnPrincipal} <button class="btn-micro btn-micro-red" style="padding: 6px 12px;" onclick="archivarPrueba(${x.id})">✖ Archivar</button></div></div>`; }); c.innerHTML = h; }
             document.getElementById('modalNotificaciones').classList.add('open');
         }
         async function archivarPrueba(id) { let p = datosPruebas.find(x => x.id === id); if(p) p.estado = 'archivado'; actualizarBadgeNotificaciones(); abrirPanelNotificaciones(); await guardarBovedaEnNube(true); renderizarTodo(); }
         function convertirPruebaEnSocio(id) { let p = datosPruebas.find(x => x.id === id); if(!p) return; document.getElementById('modalNotificaciones').classList.remove('open'); abrirModalFicha(null); document.getElementById('nsNombre').value = p.nombre; document.getElementById('nsDni').value = p.dni; document.getElementById('nsTelefono').value = p.telefono; document.getElementById('nsCorreo').value = p.correo; let talleresArr = (p.taller || "").split(',').map(t => t.trim()).filter(t => t); document.querySelectorAll('.ns-workshop-chk').forEach(c => { if(talleresArr.includes(c.value)) c.checked = true; }); document.getElementById('nsEsPrueba').checked = true; idProspectoConvertiendo = id; }
+
+        async function inscribirPruebaEnSocioExistente(idProspecto, idSocio) {
+            let p = datosPruebas.find(x => x.id === idProspecto);
+            let s = sociosData.find(x => x.id === idSocio);
+            if(!p || !s) return;
+            let talleresProbados = (p.taller || "").split(',').map(t => t.trim()).filter(t => t);
+            talleresProbados.forEach(t => { if(!s.talleres.includes(t)) s.talleres.push(t); });
+            p.estado = 'archivado';
+            document.getElementById('modalNotificaciones').classList.remove('open');
+            actualizarBadgeNotificaciones();
+            await guardarSocioEnNube(s, "actualizar");
+            await guardarBovedaEnNube(true);
+            renderizarTodo();
+            alert(`✅ Se inscribió a ${s.nombre} (socio #${s.id}) en: ${talleresProbados.join(', ')}.`);
+        }
 
         function inicializarDatosContables() {
             let guardado = localStorage.getItem('cepas_datos_contables'); let data = guardado ? JSON.parse(guardado) : {};
