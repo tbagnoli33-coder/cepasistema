@@ -1,0 +1,14 @@
+﻿# Datos personales de socios / Mercado Pago (no publicar)
+Suscriptores.csv
+*.csv
+
+# Archivo vacio sin extension creado por error
+CEPASISTEMA
+
+# Carpeta interna de trabajo de Kiro (specs)
+.kiro/
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
