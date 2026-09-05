@@ -1334,6 +1334,11 @@
                 selectable: true,
                 selectMirror: true,
                 eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+                dateClick: function(info) {
+                    if(info.view.type === 'dayGridMonth') {
+                        fullCalendarInstance.changeView('timeGridDay', info.dateStr);
+                    }
+                },
                 select: function(i) { abrirModalAlquiler(i, null); },
                 eventClick: function(i) { abrirModalAlquiler(null, i.event); },
                 events: datosContables["_ALQUILERES_"]
@@ -1341,7 +1346,18 @@
         }
         function abrirModalAlquiler(iS, iE) {
             document.getElementById('alqId').value = ""; ["alqR1Nombre","alqR1Tel","alqR2Nombre","alqR2Tel","alqPrecioValija","alqPrecioAudio","alqPrecioLimpieza"].forEach(id => document.getElementById(id).value = ""); ["alqR1Socio","alqR2Socio","alqIncValija","alqIncAudio","alqIncLimpieza"].forEach(id => document.getElementById(id).checked = false); document.getElementById('alqPrecioHora').value = "45000";
-            if(iS) { document.getElementById('alqInicio').value = iS.startStr.slice(0, 16); document.getElementById('alqFin').value = iS.endStr.slice(0, 16); document.getElementById('btnBorrarAlq').style.display = 'none'; }
+            if(iS) {
+                // Formatea un Date a 'YYYY-MM-DDTHH:MM' en hora local (lo que requiere datetime-local).
+                const fmtLocal = (d) => {
+                    const p = n => String(n).padStart(2, '0');
+                    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+                };
+                let ini = iS.start ? new Date(iS.start) : new Date();
+                let fin = iS.end ? new Date(iS.end) : new Date(ini.getTime() + 60 * 60 * 1000);
+                document.getElementById('alqInicio').value = fmtLocal(ini);
+                document.getElementById('alqFin').value = fmtLocal(fin);
+                document.getElementById('btnBorrarAlq').style.display = 'none';
+            }
             else if(iE) { let ev = datosContables["_ALQUILERES_"].find(a => a.id === iE.id); if(ev) { document.getElementById('alqId').value = ev.id; document.getElementById('alqInicio').value = ev.start; document.getElementById('alqFin').value = ev.end; document.getElementById('alqR1Nombre').value = ev.r1Nombre || ""; document.getElementById('alqR1Tel').value = ev.r1Tel || ""; document.getElementById('alqR1Socio').checked = ev.r1Socio || false; document.getElementById('alqR2Nombre').value = ev.r2Nombre || ""; document.getElementById('alqR2Tel').value = ev.r2Tel || ""; document.getElementById('alqR2Socio').checked = ev.r2Socio || false; document.getElementById('alqPrecioHora').value = ev.precioHora || "45000"; document.getElementById('alqIncValija').checked = ev.incValija || false; document.getElementById('alqPrecioValija').value = ev.precioValija || ""; document.getElementById('alqIncAudio').checked = ev.incAudio || false; document.getElementById('alqPrecioAudio').value = ev.precioAudio || ""; document.getElementById('alqIncLimpieza').checked = ev.incLimpieza || false; document.getElementById('alqPrecioLimpieza').value = ev.precioLimpieza || ""; } document.getElementById('btnBorrarAlq').style.display = 'inline-block'; }
             calcTotalAlquiler(); document.getElementById('modalAlquiler').classList.add('open');
         }
