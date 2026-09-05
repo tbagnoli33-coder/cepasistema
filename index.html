@@ -735,8 +735,23 @@
 
         function actualizarEstadosGeneral() {
             sociosData.forEach(s => {
+                // Inactivación manual explícita: máxima prioridad.
                 if(s.inactivoManual) { s.estadoCalculado = 'inactivo'; return; }
                 if(s.esCD) { s.estadoCalculado = 'cd'; return; }
+
+                // Punto 2: si el desarrollador reactivó manualmente, el socio está activo
+                // aunque su cuota esté atrasada. Se calcula 'dia' si pagó el mes actual, si no 'pendiente',
+                // pero NUNCA cae en 'mora'/'inactivo' automáticamente.
+                if(s.reactivadoManual) {
+                    let pagoMesActual = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
+                    s.estadoCalculado = pagoMesActual ? 'dia' : 'pendiente';
+                    return;
+                }
+
+                // Opción A: un socio con MP suscripción activa está siempre al día.
+                // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
+                if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
+
                 let mP = 0, mI = 0, pA = false;
                 for(let i = 0; i <= indiceMesActual; i++) { let m = mesesLista[i]; if(s.pagos[m] && s.pagos[m] !== "") { mP++; if(i === indiceMesActual) pA = true; } else mI++; }
                 if(pA) s.estadoCalculado = 'dia'; else if(mI === 1) s.estadoCalculado = 'pendiente'; else if(mI >= 2 && mI < 4) s.estadoCalculado = 'mora'; else if(mI >= 4) s.estadoCalculado = 'inactivo'; else s.estadoCalculado = 'pendiente';
@@ -820,8 +835,8 @@
                     else if (tipoVista === 'inactivos') cumpleVista = (s.estadoCalculado === 'inactivo');
                     else if (tipoVista === 'socio_individual') cumpleVista = (s.id === filtroParametro);
 
-                    if (tipoVista !== 'inactivos' && tipoVista !== 'socio_individual' && filtroEstadoRapido !== 'inactivo') {
-                        if (s.estadoCalculado === 'inactivo' && !(tipoVista === 'taller' && (s.profesorDe.some(p => p.toUpperCase().includes(filtroParametro.toUpperCase()))))) return false;
+                    if (tipoVista !== 'inactivos' && tipoVista !== 'socio_individual' && tipoVista !== 'taller' && filtroEstadoRapido !== 'inactivo') {
+                        if (s.estadoCalculado === 'inactivo') return false;
                     }
 
                     let cumpleF = (filtroEstadoRapido === 'todos') || (s.estadoCalculado === filtroEstadoRapido);
@@ -1083,7 +1098,7 @@
             }
         }
 
-        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); s.inactivoManual = !s.inactivoManual; renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
+        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); let estabaInactivo = (s.estadoCalculado === 'inactivo'); if(estabaInactivo) { s.inactivoManual = false; s.reactivadoManual = true; } else { s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
         function solicitarEliminarSocio(id) { if(confirm("¿Seguro de eliminar permanentemente?")) { sociosData = sociosData.filter(s => s.id !== id); renderizarTodo(); fetch(SCRIPT_URL + "?action=eliminar", { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ID: id }) }); } }
         function solicitarCambioCD(id) { let s = sociosData.find(x => x.id === id); s.esCD = !s.esCD; renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
 
@@ -1385,7 +1400,7 @@
         function guardarBuffetExtra() { let id = document.getElementById('beEvId').value, d = document.getElementById('beDesc').value, m = parseFloat(document.getElementById('beMonto').value); if(!d || m <= 0) return; let ev = datosContables["_BUFFET_"].find(e => e.id === id); ev.extras.push({ id: 'ex_' + new Date().getTime(), desc: d, monto: m, tipo: document.getElementById('beTipo').value }); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); document.getElementById('modalBuffetExtra').classList.remove('open'); renderDetalleBuffet(id); }
         function eliminarBuffetExtra(evId, exId) { let ev = datosContables["_BUFFET_"].find(e => e.id === evId); ev.extras = ev.extras.filter(x => x.id !== exId); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderDetalleBuffet(id); }
 
-        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); if(s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') { alert("Gestión automática por MP."); return; } isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
+        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); if((s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') && !esDesarrollador()) { alert("Gestión automática por MP. Solo el desarrollador puede editar meses manualmente."); return; } isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseover', e => { if(!isDragging) return; let b = e.target.closest('.mes-interact'); if(!b || parseInt(b.dataset.socioId) !== dragSocioId) return; dragMeses.add(b.dataset.mes); b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
         function cerrarModal() { document.getElementById('customModal').classList.remove('open'); accionPendienteModal = null; }
@@ -1495,9 +1510,10 @@
                 let tieneActiva = estados.some(st => st === 'authorized' || st === 'up_to_date');
                 let estaRealmenteCaido = !tieneActiva;
 
-                let socio = sociosData.find(s => mismaPersonaPorNombre(nombreMP, s.nombre));
+                let sociosMatch = sociosData.filter(s => mismaPersonaPorNombre(nombreMP, s.nombre));
 
-                if(socio) {
+                if(sociosMatch.length > 0) {
+                  sociosMatch.forEach(socio => {
                     let esActivoSistema = (socio.formaPago === 'MP');
                     if(estaRealmenteCaido && esActivoSistema) {
                         alertasCount++;
@@ -1511,6 +1527,7 @@
                                     <button class="btn-micro btn-micro-green" onclick="restaurarMPActivo(${socio.id}); document.getElementById('modalAuditoriaMP').classList.remove('open');">Pasar a Activo</button>
                                  </div>`;
                     }
+                  });
                 } else if(tieneActiva) {
                     let norm = normalizarNombre(nombreMP);
                     if(!datosContables["_MP_IGNORADOS_"].includes(norm) && !Object.prototype.hasOwnProperty.call(datosContables["_MP_VINCULADOS_"], norm)) {
