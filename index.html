@@ -964,8 +964,17 @@
                 card.className = 'socio-card is-prospecto';
                 let m = sociosData.find(s => (s.dni === p.dni && p.dni !== '') || (s.telefono === p.telefono && p.telefono !== ''));
                 let btnPrincipalCard = m ? `<button class='btn-micro btn-micro-blue' style='background:var(--accent);color:#fff;border:none;padding:6px 12px;' onclick='inscribirPruebaEnSocioExistente(${p.id}, ${m.id}); event.stopPropagation();'>➕ Inscribir a este taller</button>` : `<button class='btn-micro btn-micro-blue' style='background:var(--accent);color:#fff;border:none;padding:6px 12px;' onclick='convertirPruebaEnSocio(${p.id}); event.stopPropagation();'>➕ Asociar</button>`;
+
+                let pTelRaw = (p.telefono || '').toString().trim();
+                let pCorRaw = (p.correo || '').toString().trim();
+                let pDniRaw = (p.dni || '').toString().trim();
+                let pCleanPhone = pTelRaw.replace(/\D/g, ''); if(pCleanPhone.length === 10 && pCleanPhone.startsWith('11')) pCleanPhone = '549' + pCleanPhone;
+                let pValTel = pTelRaw !== '' ? `<a href="https://wa.me/${pCleanPhone}" target="_blank" style="color:var(--verde); text-decoration:none;">${escaparHTMLTexto(pTelRaw)} 💬</a>` : 'No registrado';
+                let pValCor = pCorRaw !== '' ? `<a href="mailto:${escaparHTMLTexto(pCorRaw)}" target="_blank" style="color:var(--accent); text-decoration:none;">${escaparHTMLTexto(pCorRaw)} ✉️</a>` : 'No registrado';
+                let pValDni = pDniRaw !== '' ? escaparHTMLTexto(pDniRaw) : 'No registrado';
+
                 card.innerHTML = `
-                    <div class='socio-card-header'>
+                    <div class='socio-card-header' onclick='toggleDetalles("p-${p.id}")'>
                         <div class='socio-clickable-area'>
                             <div class='socio-id-container'><span class='socio-id'>🆓</span></div>
                             <div class='socio-detalles'>
@@ -978,6 +987,13 @@
                                 ${btnPrincipalCard}
                                 <button class='btn-micro btn-micro-red' style='padding:6px 12px;' onclick='archivarPrueba(${p.id}); event.stopPropagation();'>✖ Archivar</button>
                             </div>
+                        </div>
+                    </div>
+                    <div id='extra-p-${p.id}' class='socio-extra-info'>
+                        <div class='info-grid'>
+                            <div class='info-block'><span class='info-label'>DNI</span><span class='info-value'>${pValDni}</span></div>
+                            <div class='info-block'><span class='info-label'>Teléfono</span><span class='info-value'>${pValTel}</span></div>
+                            <div class='info-block'><span class='info-label'>Correo</span><span class='info-value'>${pValCor}</span></div>
                         </div>
                     </div>`;
                 container.appendChild(card);
