@@ -752,9 +752,14 @@
                 // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
                 if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
 
-                let mP = 0, mI = 0, pA = false;
-                for(let i = 0; i <= indiceMesActual; i++) { let m = mesesLista[i]; if(s.pagos[m] && s.pagos[m] !== "") { mP++; if(i === indiceMesActual) pA = true; } else mI++; }
-                if(pA) s.estadoCalculado = 'dia'; else if(mI === 1) s.estadoCalculado = 'pendiente'; else if(mI >= 2 && mI < 4) s.estadoCalculado = 'mora'; else if(mI >= 4) s.estadoCalculado = 'inactivo'; else s.estadoCalculado = 'pendiente';
+                // Opción 1: el mes en curso NO cuenta como deuda vencida todavía.
+                // Solo se cuentan como impagos los meses ANTERIORES al mes actual.
+                let mesesVencidosImpagos = 0;
+                for(let i = 0; i < indiceMesActual; i++) { let m = mesesLista[i]; if(!(s.pagos[m] && s.pagos[m] !== "")) mesesVencidosImpagos++; }
+                if(mesesVencidosImpagos === 0) s.estadoCalculado = 'dia';
+                else if(mesesVencidosImpagos === 1) s.estadoCalculado = 'pendiente';
+                else if(mesesVencidosImpagos >= 2 && mesesVencidosImpagos < 4) s.estadoCalculado = 'mora';
+                else s.estadoCalculado = 'inactivo';
             });
         }
 
