@@ -60,11 +60,11 @@
                 <div class="nav-section-title">Talleres Oficiales</div>
                 <ul class="nav-menu">
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #ff00ff;" onclick="seleccionarVista('taller', 'ZUMBA', this)"><span>💃</span> ZUMBA</a></li>
-                    <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #ff8c00;" onclick="seleccionarVista('taller', 'FOLKLORE', this)"><span>🪭</span> FOLKLORE</a></li>
+                    <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #ff8c00;" onclick="seleccionarVista('taller', 'FOLKLORE', this)"><span>🎶</span> FOLKLORE</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #4169e1;" onclick="seleccionarVista('taller', 'YOGA', this)"><span>🧘</span> YOGA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #c08081;" onclick="seleccionarVista('taller', 'ESCRITURA', this)"><span>✍️</span> ESCRITURA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #8fbc8f;" onclick="seleccionarVista('taller', 'DIBUJO KIDS', this)"><span>🎨</span> DIBUJO KIDS</a></li>
-                    <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #9900ff;" onclick="seleccionarVista('taller', 'AFRO', this)"><span>🪘</span> AFRO</a></li>
+                    <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #9900ff;" onclick="seleccionarVista('taller', 'AFRO', this)"><span>🥁</span> AFRO</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #cc0000;" onclick="seleccionarVista('taller', 'CERÁMICA RAÍZ', this)"><span>🏺</span> CERÁMICA RAÍZ</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #f29c38;" onclick="seleccionarVista('taller', 'CERÁMICA TRADIC.', this)"><span>🏺</span> CERÁMICA TRADIC.</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #00d8ff;" onclick="seleccionarVista('taller', 'INGLÉS ADULTS', this)"><span>🗣️</span> INGLÉS ADULTS</a></li>
@@ -752,13 +752,25 @@
                 // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
                 if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
 
-                // Opción 1: el mes en curso NO cuenta como deuda vencida todavía.
-                // Solo se cuentan como impagos los meses ANTERIORES al mes actual.
+                // El conteo de impagos arranca desde el MES DE ALTA del socio si se asoció
+                // este año; si es de un año anterior, arranca en enero. El mes en curso NO cuenta.
+                let mesInicioConteo = 0;
+                if(s.fechaCreacionStr && s.fechaCreacionStr.indexOf('/') !== -1) {
+                    let partesFA = s.fechaCreacionStr.split('/');
+                    let mesAltaNum = parseInt(partesFA[1], 10);   // 1..12
+                    let anioAlta = parseInt(partesFA[2], 10);
+                    let anioActual = new Date().getFullYear();
+                    if(!isNaN(anioAlta) && !isNaN(mesAltaNum) && anioAlta >= anioActual) {
+                        mesInicioConteo = mesAltaNum - 1; // a índice 0..11
+                    }
+                }
+                if(mesInicioConteo < 0) mesInicioConteo = 0;
+
                 let mesesVencidosImpagos = 0;
-                for(let i = 0; i < indiceMesActual; i++) { let m = mesesLista[i]; if(!(s.pagos[m] && s.pagos[m] !== "")) mesesVencidosImpagos++; }
+                for(let i = mesInicioConteo; i < indiceMesActual; i++) { let m = mesesLista[i]; if(!(s.pagos[m] && s.pagos[m] !== "")) mesesVencidosImpagos++; }
                 if(mesesVencidosImpagos === 0) s.estadoCalculado = 'dia';
                 else if(mesesVencidosImpagos === 1) s.estadoCalculado = 'pendiente';
-                else if(mesesVencidosImpagos >= 2 && mesesVencidosImpagos < 4) s.estadoCalculado = 'mora';
+                else if(mesesVencidosImpagos === 2) s.estadoCalculado = 'mora';
                 else s.estadoCalculado = 'inactivo';
             });
         }
