@@ -239,6 +239,7 @@
                 <button id="modalBtnEfectivo" class="modal-btn" style="background: #f1c40f; color: #333; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.85rem;" onclick="confirmarPagoMetodo('EFECTIVO')">💵 PAGÓ EN EFECTIVO</button>
                 <button id="modalBtnTransfC" class="modal-btn" style="background: #eafaf1; border: 1px solid #27ae60; color: #27ae60; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('TRANSFERENCIA_C')">🏦 TRANSF. (CREDICOOP)</button>
                 <button id="modalBtnTransfMP" class="modal-btn" style="background: #ebf5fb; border: 1px solid #2980b9; color: #2980b9; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('TRANSFERENCIA_MP')">🏦 TRANSF. (MERCADO PAGO)</button>
+                <button id="modalBtnSuscMP" class="modal-btn" style="background: #eafaf1; border: 1px solid #27ae60; color: #1e8449; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('SUSCRIPCION_MP')">🔄 INICIA SUSCRIPCIÓN AUTOMÁTICA MP</button>
             </div>
         </div>
     </div>
@@ -752,16 +753,26 @@
                 // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
                 if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
 
-                // El conteo de impagos arranca desde el MES DE ALTA del socio si se asoció
-                // este año; si es de un año anterior, arranca en enero. El mes en curso NO cuenta.
+                // Regla unificada:
+                // 1) Si el mes actual está pago => al día (sin importar meses viejos).
+                // 2) Si no tiene NINGÚN mes pago en todo el año => inactivo.
+                // 3) Si no, se cuentan meses vencidos impagos desde el mes de alta (si es de este año)
+                //    o desde enero (si es de un año anterior), sin contar el mes actual:
+                //    0 => día, 1 => pendiente, 2 => mora, 3+ => inactivo.
+                let pagoMesActualEst = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
+                if(pagoMesActualEst) { s.estadoCalculado = 'dia'; return; }
+
+                let tieneAlgunPago = mesesLista.some(m => s.pagos[m] && s.pagos[m] !== "");
+                if(!tieneAlgunPago) { s.estadoCalculado = 'inactivo'; return; }
+
                 let mesInicioConteo = 0;
                 if(s.fechaCreacionStr && s.fechaCreacionStr.indexOf('/') !== -1) {
                     let partesFA = s.fechaCreacionStr.split('/');
-                    let mesAltaNum = parseInt(partesFA[1], 10);   // 1..12
+                    let mesAltaNum = parseInt(partesFA[1], 10);
                     let anioAlta = parseInt(partesFA[2], 10);
                     let anioActual = new Date().getFullYear();
                     if(!isNaN(anioAlta) && !isNaN(mesAltaNum) && anioAlta >= anioActual) {
-                        mesInicioConteo = mesAltaNum - 1; // a índice 0..11
+                        mesInicioConteo = mesAltaNum - 1;
                     }
                 }
                 if(mesInicioConteo < 0) mesInicioConteo = 0;
@@ -917,12 +928,15 @@
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
 
-                let adminHtml = usuarioActual && usuarioActual.rol === 'DESARROLLADOR' ? `
+                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${s.estadoCalculado === 'inactivo' ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${s.estadoCalculado === 'inactivo' ? 'Reactivar' : 'Inactivar'}</button>` : '';
+                let accionesDevExtra = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR') ? `
+                        <button class='btn-micro btn-micro-blue' onclick='abrirModalAsignarProfe(${s.id})'>PROFESOR/A</button>
+                        <button class='btn-micro' style='color:#c0392b; border: 1px solid #c0392b;' onclick='solicitarEliminarSocio(${s.id}); event.stopPropagation();'>🗑️ ELIMINAR</button>` : '';
+                let adminHtml = usuarioActual ? `
                     <div class='admin-micro-actions' onclick='event.stopPropagation()'>
                         ${devActions}
-                        <button class='btn-micro ${s.estadoCalculado === 'inactivo' ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id})'>${s.estadoCalculado === 'inactivo' ? 'Reactivar' : 'Inactivar'}</button>
-                        <button class='btn-micro btn-micro-blue' onclick='abrirModalAsignarProfe(${s.id})'>PROFESOR/A</button>
-                        <button class='btn-micro' style='color:#c0392b; border: 1px solid #c0392b;' onclick='solicitarEliminarSocio(${s.id}); event.stopPropagation();'>🗑️ ELIMINAR</button>
+                        ${btnReactInact}
+                        ${accionesDevExtra}
                     </div>` : '';
 
                 let contenidoDerecho = '';
@@ -1131,7 +1145,7 @@
             }
         }
 
-        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); let estabaInactivo = (s.estadoCalculado === 'inactivo'); if(estabaInactivo) { s.inactivoManual = false; s.reactivadoManual = true; } else { s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
+        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); if(!s) return; let estabaInactivo = (s.estadoCalculado === 'inactivo'); if(estabaInactivo) { if(!confirm(`¿Reactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = false; s.reactivadoManual = true; } else { s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
         function solicitarEliminarSocio(id) { if(confirm("¿Seguro de eliminar permanentemente?")) { sociosData = sociosData.filter(s => s.id !== id); renderizarTodo(); fetch(SCRIPT_URL + "?action=eliminar", { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ID: id }) }); } }
         function solicitarCambioCD(id) { let s = sociosData.find(x => x.id === id); s.esCD = !s.esCD; renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
 
@@ -1449,9 +1463,9 @@
         function guardarBuffetExtra() { let id = document.getElementById('beEvId').value, d = document.getElementById('beDesc').value, m = parseFloat(document.getElementById('beMonto').value); if(!d || m <= 0) return; let ev = datosContables["_BUFFET_"].find(e => e.id === id); ev.extras.push({ id: 'ex_' + new Date().getTime(), desc: d, monto: m, tipo: document.getElementById('beTipo').value }); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); document.getElementById('modalBuffetExtra').classList.remove('open'); renderDetalleBuffet(id); }
         function eliminarBuffetExtra(evId, exId) { let ev = datosContables["_BUFFET_"].find(e => e.id === evId); ev.extras = ev.extras.filter(x => x.id !== exId); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderDetalleBuffet(id); }
 
-        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); if((s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') && !esDesarrollador()) { alert("Gestión automática por MP. Solo el desarrollador puede editar meses manualmente."); return; } isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
+        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); // Todos los roles pueden registrar/quitar pagos manualmente, incluso sobre socios MP (los saca de la suscripción automática al elegir método manual). isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseover', e => { if(!isDragging) return; let b = e.target.closest('.mes-interact'); if(!b || parseInt(b.dataset.socioId) !== dragSocioId) return; dragMeses.add(b.dataset.mes); b.classList.toggle('pago', dragAction === 'pagar'); });
-        document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
+        document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; document.getElementById('modalBtnSuscMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalBtnTransfMP').style.display = 'inline-block'; document.getElementById('modalBtnSuscMP').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { if(m === 'SUSCRIPCION_MP') { s.formaPago = 'MP'; for(let i = indiceMesActual; i < mesesLista.length; i++) { s.pagos[mesesLista[i]] = "x"; } } else { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
         function cerrarModal() { document.getElementById('customModal').classList.remove('open'); accionPendienteModal = null; }
         function ejecutarAccionModal() { if(accionPendienteModal) accionPendienteModal(); }
 
