@@ -97,8 +97,9 @@
                 <div style="display: flex; align-items: center; gap: 20px;">
                     <button class="mobile-menu-btn" onclick="abrirMenuLateral()">☰</button>
                     <div class="top-nav-icons">
-                        <div class="top-nav-icon active" onclick="seleccionarVista('todos', null, this)" title="Tabla General">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                        <div class="top-nav-icon active" onclick="seleccionarVista('todos', null, this)" title="Inicio - Tabla General" style="flex-direction:column; gap:1px; width:auto; min-width:22px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px; height:22px;"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path></svg>
+                            <span style="font-size:0.5rem; font-weight:700; letter-spacing:0.3px; line-height:1;">INICIO</span>
                         </div>
                         <div class="top-nav-icon" onclick="abrirMapa(this)" title="Mapa de Socios/as">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -240,6 +241,7 @@
                 <button id="modalBtnTransfC" class="modal-btn" style="background: #eafaf1; border: 1px solid #27ae60; color: #27ae60; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('TRANSFERENCIA_C')">🏦 TRANSF. (CREDICOOP)</button>
                 <button id="modalBtnTransfMP" class="modal-btn" style="background: #ebf5fb; border: 1px solid #2980b9; color: #2980b9; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('TRANSFERENCIA_MP')">🏦 TRANSF. (MERCADO PAGO)</button>
                 <button id="modalBtnSuscMP" class="modal-btn" style="background: #eafaf1; border: 1px solid #27ae60; color: #1e8449; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('SUSCRIPCION_MP')">🔄 INICIA SUSCRIPCIÓN AUTOMÁTICA MP</button>
+                <button id="modalBtnPagoManualMP" class="modal-btn" style="background: #e8f4fd; border: 1px solid #2980b9; color: #2471a3; display:none; flex-basis: 100%; margin-top: 5px; font-size: 0.8rem;" onclick="confirmarPagoMetodo('PAGO_MANUAL_MP')">💳 Pago manual MP (solo este mes)</button>
             </div>
         </div>
     </div>
@@ -901,7 +903,7 @@
             container.innerHTML = '';
 
             let matchingProspectos = [];
-            if (textoBusqueda !== '' || filtroEstadoRapido === 'prospectos') {
+            if (textoBusqueda !== '' || filtroEstadoRapido === 'prospectos' || tipoVista === 'taller') {
                 matchingProspectos = datosPruebas.filter(p => p.estado === 'pendiente');
                 if (textoBusqueda !== '') {
                     matchingProspectos = matchingProspectos.filter(p => 
@@ -910,6 +912,10 @@
                         (p.correo && p.correo.toLowerCase().includes(textoBusqueda)) ||
                         (p.dni && p.dni.includes(textoBusqueda))
                     );
+                }
+                if (tipoVista === 'taller' && textoBusqueda === '') {
+                    let tallerUpper = filtroParametro.toUpperCase();
+                    matchingProspectos = matchingProspectos.filter(p => (p.taller || '').toUpperCase().includes(tallerUpper));
                 }
             }
 
@@ -1465,7 +1471,7 @@
 
         document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); /* Todos los roles pueden registrar/quitar pagos manualmente, incluso sobre socios MP */ isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseover', e => { if(!isDragging) return; let b = e.target.closest('.mes-interact'); if(!b || parseInt(b.dataset.socioId) !== dragSocioId) return; dragMeses.add(b.dataset.mes); b.classList.toggle('pago', dragAction === 'pagar'); });
-        document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; document.getElementById('modalBtnSuscMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalBtnTransfMP').style.display = 'inline-block'; document.getElementById('modalBtnSuscMP').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { if(m === 'SUSCRIPCION_MP') { s.formaPago = 'MP'; for(let i = indiceMesActual; i < mesesLista.length; i++) { s.pagos[mesesLista[i]] = "x"; } } else { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
+        document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; document.getElementById('modalBtnSuscMP').style.display = 'none'; document.getElementById('modalBtnPagoManualMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalBtnTransfMP').style.display = 'inline-block'; document.getElementById('modalBtnSuscMP').style.display = 'inline-block'; document.getElementById('modalBtnPagoManualMP').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { if(m === 'SUSCRIPCION_MP') { s.formaPago = 'MP'; for(let i = indiceMesActual; i < mesesLista.length; i++) { s.pagos[mesesLista[i]] = "x"; } } else if(m === 'PAGO_MANUAL_MP') { Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } else { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
         function cerrarModal() { document.getElementById('customModal').classList.remove('open'); accionPendienteModal = null; }
         function ejecutarAccionModal() { if(accionPendienteModal) accionPendienteModal(); }
 
@@ -1773,7 +1779,29 @@
             const opcion  = document.getElementById('expQueExportar').value;
             const formato = document.getElementById('expFormato').value;
 
-            const { titulo, clave, headers, filas } = construirFilasExportacion(opcion);
+            let titulo, clave, headers, filas;
+
+            if (filtroEstadoRapido === 'prospectos') {
+                let prospectos = datosPruebas.filter(p => p.estado === 'pendiente');
+                if (tipoVista === 'taller') {
+                    let tallerUpper = filtroParametro.toUpperCase();
+                    prospectos = prospectos.filter(p => (p.taller || '').toUpperCase().includes(tallerUpper));
+                }
+                titulo = 'Clase de prueba (pendientes)' + (tipoVista === 'taller' ? ' - ' + filtroParametro : '');
+                clave = 'clase_prueba';
+                headers = ['Nombre', 'Taller', 'Fecha de visita', 'DNI', 'Teléfono', 'Correo'];
+                filas = prospectos.map(p => [
+                    p.nombre || '',
+                    p.taller || '',
+                    p.fecha || '',
+                    (p.dni && p.dni !== '') ? p.dni : '',
+                    (p.telefono && p.telefono !== '') ? p.telefono : '',
+                    (p.correo && p.correo !== '') ? p.correo : ''
+                ]);
+            } else {
+                const r = construirFilasExportacion(opcion);
+                titulo = r.titulo; clave = r.clave; headers = r.headers; filas = r.filas;
+            }
 
             if (filas.length === 0) {
                 alert('No hay datos para exportar con los filtros actuales.');
