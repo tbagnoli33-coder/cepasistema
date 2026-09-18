@@ -704,7 +704,22 @@
         async function cargarSociosDesdeNube() {
             const st = document.getElementById('total-socios-label'); st.innerText = "Conectando... ⏳"; st.style.color = "#f39c12";
             try {
-                const res = await fetch(SCRIPT_URL); const dataRaw = await res.json();
+                async function obtenerDatosConReintento(maxIntentos) {
+                    let ultimoError = null;
+                    for(let intento = 1; intento <= maxIntentos; intento++) {
+                        try {
+                            const urlNoCache = SCRIPT_URL + (SCRIPT_URL.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now();
+                            const resp = await fetch(urlNoCache, { redirect: 'follow', cache: 'no-store' });
+                            const texto = await resp.text();
+                            return JSON.parse(texto);
+                        } catch(err) {
+                            ultimoError = err;
+                            if(intento < maxIntentos) { st.innerText = "Reintentando conexión (" + intento + ")... ⏳"; await sleep(700 * intento); }
+                        }
+                    }
+                    throw ultimoError;
+                }
+                const dataRaw = await obtenerDatosConReintento(4);
                 const dataSocios = dataRaw.socios || []; logsData = dataRaw.logs || [];
                 if(dataRaw.finanzas) {
                     if(dataRaw.finanzas.contables) { datosContables = dataRaw.finanzas.contables; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); }
