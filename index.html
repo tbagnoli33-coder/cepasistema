@@ -69,7 +69,6 @@
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #f29c38;" onclick="seleccionarVista('taller', 'CERÁMICA TRADIC.', this)"><span>🏺</span> CERÁMICA TRADIC.</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #00d8ff;" onclick="seleccionarVista('taller', 'INGLÉS ADULTS', this)"><span>🗣️</span> INGLÉS ADULTS</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #f4d03f;" onclick="seleccionarVista('taller', 'CERÁMICA KIDS', this)"><span>🧒</span> CERÁMICA KIDS</a></li>
-                    <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #6495ed;" onclick="seleccionarVista('taller', 'YOGA SILLA', this)"><span>🪑</span> YOGA SILLA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #a9a9a9;" onclick="seleccionarVista('taller', 'GRUPO LECTURA', this)"><span>📚</span> GRUPO LECTURA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #1abc9c;" onclick="seleccionarVista('taller', 'DIBUJO ADULTOS/AS', this)"><span>✏️</span> DIBUJO ADULTOS/AS</a></li>
                 </ul>
@@ -528,8 +527,8 @@
         let tipoVista = 'todos', filtroParametro = null, filtroEstadoRapido = 'todos', filtroFPRapido = 'todos', textoBusqueda = '', panelInactivosAbierto = false, isDragging = false, dragSocioId = null, dragMeses = new Set(), dragAction = null, timerCountdown = null, accionPendienteModal = null, mesAjusteActual = null, fullCalendarInstance = null;
         let sociosData = [], logsData = [], idSocioEditando = null, datosPruebas = [], idProspectoConvertiendo = null;
         let talleresPruebaSeleccionados = []; // orden de selección FIFO; 0..2 elementos
-        const listaTalleres = ["ZUMBA", "FOLKLORE", "YOGA", "ESCRITURA", "DIBUJO KIDS", "AFRO", "CERÁMICA RAÍZ", "CERÁMICA TRADIC.", "INGLÉS ADULTS", "CERÁMICA KIDS", "YOGA SILLA", "GRUPO LECTURA", "DIBUJO ADULTOS/AS"];
-        const coloresTalleres = { "AFRO": "#9900ff", "CERÁMICA TRADIC.": "#f29c38", "CERÁMICA RAÍZ": "#cc0000", "DIBUJO KIDS": "#8fbc8f", "FOLKLORE": "#ff8c00", "YOGA SILLA": "#6495ed", "INGLÉS ADULTS": "#00d8ff", "ESCRITURA": "#c08081", "CERÁMICA KIDS": "#f4d03f", "YOGA": "#4169e1", "ZUMBA": "#ff00ff", "GRUPO LECTURA": "#a9a9a9", "DIBUJO ADULTOS/AS": "#1abc9c" };
+        const listaTalleres = ["ZUMBA", "FOLKLORE", "YOGA", "ESCRITURA", "DIBUJO KIDS", "AFRO", "CERÁMICA RAÍZ", "CERÁMICA TRADIC.", "INGLÉS ADULTS", "CERÁMICA KIDS", "GRUPO LECTURA", "DIBUJO ADULTOS/AS"];
+        const coloresTalleres = { "AFRO": "#9900ff", "CERÁMICA TRADIC.": "#f29c38", "CERÁMICA RAÍZ": "#cc0000", "DIBUJO KIDS": "#8fbc8f", "FOLKLORE": "#ff8c00", "INGLÉS ADULTS": "#00d8ff", "ESCRITURA": "#c08081", "CERÁMICA KIDS": "#f4d03f", "YOGA": "#4169e1", "ZUMBA": "#ff00ff", "GRUPO LECTURA": "#a9a9a9", "DIBUJO ADULTOS/AS": "#1abc9c" };
         const mesesLista = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
         const indiceMesActual = new Date().getMonth(); 
         const mesesContables = ["Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -701,6 +700,46 @@
             container.innerHTML = html;
         }
 
+        async function migrarYogaSilla() {
+            const VIEJO = "YOGA SILLA";
+            const NUEVO = "YOGA";
+            let algoCambio = false;
+
+            for (const s of sociosData) {
+                let tocado = false;
+                if (Array.isArray(s.talleres) && s.talleres.some(t => t.toUpperCase() === VIEJO)) {
+                    let nuevos = s.talleres.filter(t => t.toUpperCase() !== VIEJO);
+                    if (!nuevos.some(t => t.toUpperCase() === NUEVO)) nuevos.push(NUEVO);
+                    s.talleres = nuevos;
+                    tocado = true;
+                }
+                if (Array.isArray(s.profesorDe) && s.profesorDe.some(t => t.toUpperCase() === VIEJO)) {
+                    let nuevos = s.profesorDe.filter(t => t.toUpperCase() !== VIEJO);
+                    if (!nuevos.some(t => t.toUpperCase() === NUEVO)) nuevos.push(NUEVO);
+                    s.profesorDe = nuevos;
+                    tocado = true;
+                }
+                if (tocado) {
+                    algoCambio = true;
+                    await guardarSocioEnNube(s, "actualizar");
+                }
+            }
+
+            if (datosContables && datosContables[VIEJO]) {
+                if (!datosContables[NUEVO]) datosContables[NUEVO] = {};
+                mesesContables.forEach(m => {
+                    let viejoMonto = parseFloat(datosContables[VIEJO][m]) || 0;
+                    let nuevoMonto = parseFloat(datosContables[NUEVO][m]) || 0;
+                    datosContables[NUEVO][m] = nuevoMonto + viejoMonto;
+                });
+                delete datosContables[VIEJO];
+                algoCambio = true;
+                await guardarBovedaEnNube(true);
+            }
+
+            if (algoCambio) { logDebug("Migración YOGA SILLA -> YOGA completada."); }
+        }
+
         async function cargarSociosDesdeNube() {
             const st = document.getElementById('total-socios-label'); st.innerText = "Conectando... ⏳"; st.style.color = "#f39c12";
             try {
@@ -735,6 +774,7 @@
                     let fL = (s.FECHA_ALTA || "").toString(); if(fL.includes("T") && fL.includes("Z")) { let d = new Date(fL); fL = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth() + 1).padStart(2,'0')}/${d.getFullYear()}`; }
                     sociosData.push({ id: parseInt(s.ID), nombre: (s.NOMBRE || "").toString().toUpperCase(), esCD: s.ES_CD === "X", formaPago: (s.METODO_PAGO || "").toString(), talleres: tArr, pagos: pObj, fechaCreacionStr: fL, fechaCreacionTs: fL ? new Date(fL.split('/').reverse().join('-')).getTime() : new Date().getTime(), domicilio: (s.DOMICILIO || "No registrado").toString().trim(), dni: (s.DNI || "No registrado").toString().trim(), telefono: (s.TELEFONO || "No registrado").toString().trim(), correo: (s.CORREO || "No registrado").toString().trim(), inactivoManual: s.INACTIVO_MANUAL === "SI", reactivadoManual: s.REACTIVADO_MANUAL === "SI", profesorDe: pArr, esTutor: tArr.some(t => t.includes("KIDS")) || s.ES_TUTOR === "SI", linkPdf: (s.LINK_PDF || "").toString().trim(), usuarioMP: (s.USUARIO_MP || "").toString().trim() });
                 });
+                await migrarYogaSilla();
                 st.innerText = "Conectado ☁️✅"; st.style.color = "var(--verde)"; actualizarBadgeNotificaciones();
                 if(tipoVista === 'analisis_contable') renderTabsContables(); else if(tipoVista === 'mapa') abrirMapa(null); else if(tipoVista === 'alquileres') renderCalendar(); else if(tipoVista === 'buffet') renderBuffetMain(); else if(tipoVista === 'registro') renderizarRegistroActividad(); else renderizarTodo();
             } catch(e) { st.innerText = "Error de red ❌"; st.style.color = "var(--rojo)"; logDebug("ERROR FETCH: " + e.message); }
