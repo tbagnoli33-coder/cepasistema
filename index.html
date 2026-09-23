@@ -34,9 +34,13 @@
         .agenda-grid-oficios { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         .agenda-grid-densa { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
         .agenda-card { background: #fff; border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-        .agenda-card-oficio { min-height: calc(100vh - 240px); max-height: calc(100vh - 240px); }
+        .agenda-card-oficio { min-height: 260px; max-height: 360px; }
         .agenda-card-densa { min-height: calc((100vh - 260px) / 3); max-height: calc((100vh - 260px) / 3); }
         .agenda-card-head { padding: 10px 12px; font-weight: 800; font-size: .78rem; letter-spacing: .3px; text-transform: uppercase; color: #fff; background: var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
+        .agenda-card-head .agenda-head-main { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+        .agenda-card-head .agenda-head-main > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .agenda-rename { border: none; background: rgba(255,255,255,0.15); color: #fff; border-radius: 4px; cursor: pointer; font-size: .7rem; line-height: 1; padding: 3px 5px; flex-shrink: 0; opacity: .85; }
+        .agenda-rename:hover { background: rgba(255,255,255,0.3); opacity: 1; }
         .agenda-card-head .agenda-count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 8px; font-size: .65rem; }
         .agenda-card-oficio .agenda-card-head { background: #2c3e50; }
         .agenda-card-body { padding: 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
@@ -807,13 +811,42 @@
             if(datosContables) localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
         }
 
+        function rubrosBaseOficios() {
+            const a = datosAgenda();
+            if(!Array.isArray(a.rubrosBase) || !a.rubrosBase.length) a.rubrosBase = OFICIOS_BASE.slice();
+            return a.rubrosBase;
+        }
+
         function rubrosOficiosAgenda() {
+            const base = rubrosBaseOficios();
             const extras = [];
             (datosAgenda().oficios || []).forEach(c => {
                 const r = String(c.rubro || '').trim();
-                if(r && !OFICIOS_BASE.includes(r) && !extras.includes(r)) extras.push(r);
+                if(r && !base.includes(r) && !extras.includes(r)) extras.push(r);
             });
-            return OFICIOS_BASE.concat(extras);
+            return base.concat(extras);
+        }
+
+        function renombrarRubroOficio(viejo) {
+            const actual = String(viejo || '').trim();
+            if(!actual) return;
+            const nuevo = prompt('Nuevo nombre de la categoría:', actual);
+            if(nuevo == null) return;
+            const destino = String(nuevo).trim();
+            if(!destino || destino === actual) return;
+            const a = datosAgenda();
+            const base = rubrosBaseOficios();
+            const existeOtro = base.includes(destino) || (a.oficios || []).some(c => String(c.rubro || '').trim() === destino);
+            if(existeOtro) { alert(`Ya existe una categoría llamada "${destino}". Cambiá el nombre o editá esa tarjeta.`); return; }
+            (a.oficios || []).forEach(c => { if(String(c.rubro || '').trim() === actual) c.rubro = destino; });
+            const idx = base.indexOf(actual);
+            if(idx !== -1) base[idx] = destino;
+            else a.rubrosBase = base;
+            a.rubrosBase = base;
+            persistirAgendaLocal();
+            const dl = document.getElementById('agendaRubrosList');
+            if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
+            renderAgendaSeccion('oficios');
         }
 
         function renderAgendaContactos() {
@@ -899,7 +932,7 @@
                 rubrosOficiosAgenda().forEach(rubro => {
                     const exactos = items.filter(c => String(c.rubro || '').trim() === rubro);
                     html += `<div class="agenda-card agenda-card-oficio">
-                        <div class="agenda-card-head"><span>${escaparHTMLTexto(rubro)}</span><span class="agenda-count">${exactos.length}</span></div>
+                        <div class="agenda-card-head"><div class="agenda-head-main"><span>${escaparHTMLTexto(rubro)}</span><button type="button" class="agenda-rename" title="Editar nombre de la categoría" onclick="event.stopPropagation(); renombrarRubroOficio(decodeURIComponent('${encodeURIComponent(rubro)}'))">✎</button></div><span class="agenda-count">${exactos.length}</span></div>
                         <div class="agenda-card-body">${exactos.length ? exactos.map(contactoOficioHTML).join('') : '<div class="agenda-vacio">Sin contactos. Tocá + para sumar.</div>'}</div>
                     </div>`;
                 });
@@ -977,7 +1010,7 @@
                 datos[f.k] = el ? String(el.value || '').trim() : '';
             });
             if(!datos.nombre) { alert('Ingresá el Nombre y apellido.'); return; }
-            if(seccion === 'oficios' && !datos.rubro) datos.rubro = OFICIOS_BASE[0];
+            if(seccion === 'oficios' && !datos.rubro) datos.rubro = rubrosBaseOficios()[0];
             if(agendaModalEditId) {
                 const c = (datosAgenda()[seccion] || []).find(x => x.id === agendaModalEditId);
                 if(c) Object.assign(c, datos);
