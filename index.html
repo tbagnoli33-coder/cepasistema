@@ -18,8 +18,15 @@
         .tabla-contable th:first-child, .tabla-contable td:first-child { min-width: 110px !important; font-size: 0.7rem !important; }
         .celda-monto { min-width: 62px !important; }
         .input-monto { font-size: 0.75rem !important; padding: 1px !important; }
-        .btn-guardar-flotante { position: fixed; bottom: 24px; right: 24px; z-index: 1500; padding: 12px 20px; background: #8e44ad; color: #fff; border: none; border-radius: 50px; font-weight: 700; font-size: .85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(142,68,173,0.4); transition: .2s; }
+        .barra-guardar-contable { position: fixed; bottom: 24px; left: 24px; right: 24px; z-index: 1500; display: flex; align-items: center; gap: 12px; pointer-events: none; }
+        .barra-guardar-contable > * { pointer-events: auto; }
+        .aviso-guardar-contable { flex: 1; padding: 12px 20px; background: #fdeaea; color: #c0392b; border: 1px solid rgba(192, 57, 43, 0.35); border-radius: 50px; font-weight: 700; font-size: .85rem; display: none; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(192, 57, 43, 0.2); }
+        .btn-guardar-flotante { position: relative; flex-shrink: 0; padding: 12px 20px; background: #8e44ad; color: #fff; border: none; border-radius: 50px; font-weight: 700; font-size: .85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(142,68,173,0.4); transition: .2s; }
         .btn-guardar-flotante:hover { background: #732d91; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(142,68,173,0.5); }
+        .th-orden-contable { cursor: pointer; user-select: none; }
+        .th-orden-contable:hover { color: var(--accent); }
+        .th-orden-contable .flecha-orden { font-size: .65rem; opacity: .55; margin-left: 3px; }
+        .th-orden-contable.orden-activo .flecha-orden { opacity: 1; color: var(--accent); }
         #calendar-container { height: calc(100vh - 120px) !important; display: flex !important; flex-direction: column !important; }
         .notas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
         .nota-card { background: #2c3e50; color: white; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top:4px solid var(--accent); }
@@ -426,8 +433,8 @@
             <div style="background:#f4f6f9; padding:15px; border-radius:6px; margin-bottom:15px;">
                 <h4 style="font-size:0.8rem; margin-bottom:10px; color:var(--primary);">➕ Cargar Ingreso / Egreso Adicional</h4>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                    <div style="flex:2; min-width:120px;"><label class="form-label">DESCRIPCIÓN</label><input type="text" id="ajDesc" class="form-input" placeholder="Ej: Subsidio, Plomero..."></div>
-                    <div style="flex:1; min-width:80px;"><label class="form-label">MONTO $</label><input type="number" id="ajMonto" class="form-input" placeholder="0"></div>
+                    <div style="flex:2; min-width:120px;"><label class="form-label">DESCRIPCIÓN</label><input type="text" id="ajDesc" class="form-input" placeholder="Ej: Subsidio, Plomero..." oninput="marcarCambiosContables()"></div>
+                    <div style="flex:1; min-width:80px;"><label class="form-label">MONTO $</label><input type="number" id="ajMonto" class="form-input" placeholder="0" oninput="marcarCambiosContables()"></div>
                     <div style="flex:1; min-width:100px;">
                         <label class="form-label">TIPO</label>
                         <select id="ajTipo" class="form-input"><option value="ingreso">Ingreso ⬆️</option><option value="egreso">Egreso ⬇️</option></select>
@@ -539,6 +546,8 @@
         let chartInstances = {}, expandedTalleres = new Set(), mapInstance = null, geoCache = JSON.parse(localStorage.getItem('cepas_geocache')) || {};
         let mapGeocodeToken = 0;
         let ultimoCsvTextoMP = null, ultimoNombreArchivoMP = null, planesDetectadosMP = {};
+        let ordenTalleresContable = { col: null, dir: null };
+        let hayCambiosContables = false;
         const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" } };
         let usuarioActual = null;
 
@@ -797,7 +806,38 @@
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             if(datosEgresos) localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos));
             let p = { contables: datosContables, egresos: datosEgresos, pruebas: datosPruebas };
-            try { await fetch(SCRIPT_URL + "?action=guardar_contable", { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(p) }); if(!isBg) alert("✅ Datos respaldados."); } catch(e) { if(!isBg) alert("❌ Error al respaldar."); }
+            try { await fetch(SCRIPT_URL + "?action=guardar_contable", { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(p) }); ocultarAvisoGuardar(); if(!isBg) alert("✅ Datos respaldados."); } catch(e) { if(!isBg) alert("❌ Error al respaldar."); }
+        }
+
+        function marcarCambiosContables() {
+            hayCambiosContables = true;
+            let b = document.getElementById('aviso-guardar-contable');
+            if (b) b.style.display = 'flex';
+        }
+
+        function ocultarAvisoGuardar() {
+            hayCambiosContables = false;
+            let b = document.getElementById('aviso-guardar-contable');
+            if (b) b.style.display = 'none';
+        }
+
+        function ordenarColTalleres(col) {
+            if (ordenTalleresContable.col === col) {
+                if (ordenTalleresContable.dir === 'desc') ordenTalleresContable.dir = 'asc';
+                else if (ordenTalleresContable.dir === 'asc') { ordenTalleresContable.col = null; ordenTalleresContable.dir = null; }
+                else ordenTalleresContable.dir = 'desc';
+            } else {
+                ordenTalleresContable.col = col;
+                ordenTalleresContable.dir = 'desc';
+            }
+            renderTablaTalleres();
+        }
+
+        function thOrdenContable(col, label) {
+            let activo = ordenTalleresContable.col === col;
+            let flecha = activo ? (ordenTalleresContable.dir === 'desc' ? '▼' : '▲') : '↕';
+            let titulo = activo ? (ordenTalleresContable.dir === 'desc' ? 'Orden actual: mayor a menor (clic para menor a mayor)' : 'Orden actual: menor a mayor (clic para limpiar)') : 'Clic: mayor a menor';
+            return `<th class="th-orden-contable${activo ? ' orden-activo' : ''}" onclick="ordenarColTalleres('${col}')" title="${titulo}">${label}<span class="flecha-orden">${flecha}</span></th>`;
         }
 
         function actualizarEstadosGeneral() {
@@ -1345,6 +1385,7 @@
         function abrirAnalisisContable(elemento) {
             if (!usuarioActual || (usuarioActual.rol !== "TESORERIA" && usuarioActual.rol !== "DESARROLLADOR")) { alert("Acceso denegado."); return; }
             tipoVista = 'analisis_contable'; filtroParametro = null;
+            ordenTalleresContable = { col: null, dir: null };
             if(elemento) { document.querySelectorAll('.nav-link, .top-nav-icon').forEach(l => l.classList.remove('active')); elemento.classList.add('active'); }
             document.getElementById('titulo-vista').innerText = "Análisis Contable";
             document.getElementById('rightPanel').classList.add('collapsed'); document.getElementById('btnTogglePanel').innerHTML = '◀'; panelInactivosAbierto = false; cerrarSidebars();
@@ -1356,7 +1397,8 @@
         }
 
         function renderTabsContables() {
-            document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button>`;
+            document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div><div class="barra-guardar-contable"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
+            if (hayCambiosContables) { let av = document.getElementById('aviso-guardar-contable'); if (av) av.style.display = 'flex'; }
             renderTablaTalleres(); renderTablaFlujoCaja();
         }
         function switchContableTab(tabName) {
@@ -1371,18 +1413,35 @@
             listaTalleres.forEach(t => { if(!datosContables[t]) datosContables[t] = {}; if(datosContables[t].horas === undefined) datosContables[t].horas = 0; if(datosContables[t].espacio === undefined) datosContables[t].espacio = "Ninguno"; mesesContables.forEach(m => { if(datosContables[t][m] === undefined) datosContables[t][m] = 0; }); });
             let inscriptosActivos = {}; listaTalleres.forEach(t => inscriptosActivos[t] = 0);
             sociosData.forEach(s => { if (s.estadoCalculado !== 'inactivo') s.talleres.forEach(t => { if (inscriptosActivos[t] !== undefined) inscriptosActivos[t]++; }); });
-            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 20px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div><div class="contable-container"><table class="tabla-contable"><thead><tr><th>TALLER</th><th>SOCIOS</th>`;
-            mesesContables.forEach(m => html += `<th>${m}</th>`); html += `<th>ANUAL</th></tr></thead><tbody>`;
+            let filasOrdenadas = listaTalleres.slice();
+            if (ordenTalleresContable.col) {
+                let col = ordenTalleresContable.col, dir = ordenTalleresContable.dir === 'asc' ? 1 : -1;
+                let clave = (t) => {
+                    if (col === 'taller') return t;
+                    if (col === 'socios') return inscriptosActivos[t] || 0;
+                    if (col === 'anual') return mesesContables.reduce((s, m) => s + (datosContables[t][m] || 0), 0);
+                    return datosContables[t][col] || 0;
+                };
+                filasOrdenadas.sort((a, b) => { let ka = clave(a), kb = clave(b); if (typeof ka === 'string') return dir * ka.localeCompare(kb, 'es'); return dir * (ka - kb); });
+            }
+            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 20px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div><div class="contable-container"><table class="tabla-contable"><thead><tr>${thOrdenContable('taller', 'TALLER')}${thOrdenContable('socios', 'SOCIOS')}`;
+            mesesContables.forEach(m => html += thOrdenContable(m, m)); html += thOrdenContable('anual', 'ANUAL') + `</tr></thead><tbody>`;
             let totalesMes = { "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }; let granTotalAnual = 0;
-            listaTalleres.forEach(taller => {
+            filasOrdenadas.forEach(taller => {
                 let safeId = taller.replace(/[^a-zA-Z0-9]/g, ''); let cant = inscriptosActivos[taller] || 0;
                 html += `<tr class="clickable-row" onclick="toggleTallerChart('${taller}')"><td style="font-weight:600;">${taller}</td><td>${cant}</td>`;
                 let totalT = 0; let mesesD = 0;
-                mesesContables.forEach((mes) => { let val = datosContables[taller][mes] || 0; totalT += val; totalesMes[mes] += val; if(val > 0) mesesD++; html += `<td class="celda-monto" onclick="event.stopPropagation()"><input type="number" id="cont-${safeId}-${mes}" class="input-monto" value="${val > 0 ? val : ''}" onchange="actualizarMontoContable('${taller}', '${mes}', this.value)" onclick="event.stopPropagation()"></td>`; });
+                mesesContables.forEach((mes) => { let val = datosContables[taller][mes] || 0; totalT += val; totalesMes[mes] += val; if(val > 0) mesesD++; html += `<td class="celda-monto" onclick="event.stopPropagation()"><input type="number" id="cont-${safeId}-${mes}" class="input-monto" value="${val > 0 ? val : ''}" oninput="marcarCambiosContables()" onchange="actualizarMontoContable('${taller}', '${mes}', this.value)" onclick="event.stopPropagation()"></td>`; });
                 granTotalAnual += totalT;
                 html += `<td style="font-weight:700;">$ ${totalT.toLocaleString('es-AR')}</td></tr>`;
                 let prom = mesesD > 0 ? Math.round(totalT / mesesD) : 0, eA = datosContables[taller].espacio, hs = datosContables[taller].horas, pH = eA === "Salon" ? datosContables["_GLOBAL_"].precioSalon : (eA === "Sala" ? datosContables["_GLOBAL_"].precioSala : 0), cM = hs * 4 * pH, bM = prom - cM;
-                html += `<tr id="expand-${safeId}" class="expanded-row"><td colspan="${mesesContables.length + 3}"><div style="padding:15px; display:flex; gap:20px; background:white;"><div style="flex:1; height:200px;"><canvas id="chart-${safeId}"></canvas></div><div style="width:260px; background:#f9f9f9; padding:15px; border:1px solid #ccc;">Lugar: <select onchange="actualizarEspacioTaller('${taller}', 'espacio', this.value)"><option value="Ninguno" ${eA==='Ninguno'?'selected':''}>Ninguno</option><option value="Salon" ${eA==='Salon'?'selected':''}>Salón</option><option value="Sala" ${eA==='Sala'?'selected':''}>Sala</option></select><br>Horas/Sem: <input type="number" value="${hs}" onchange="actualizarEspacioTaller('${taller}', 'horas', this.value)" style="width:60px;"><br><br><b>Balance: ${bM>0?'+':''}$${bM.toLocaleString()}</b></div></div></td></tr>`;
+                let mesUlt = null, valUlt = 0;
+                for (let i = mesesContables.length - 1; i >= 0; i--) { let v = datosContables[taller][mesesContables[i]] || 0; if (v > 0) { mesUlt = mesesContables[i]; valUlt = v; break; } }
+                let gPP = 0, detalleGPP = '';
+                if (!mesUlt) { detalleGPP = cant > 0 ? `Sin montos cargados · ${cant} socios` : 'Sin montos ni socios'; }
+                else if (cant <= 0) { detalleGPP = `Último mes (${mesUlt}): $${valUlt.toLocaleString('es-AR')} · sin socios`; }
+                else { gPP = Math.round(valUlt / cant); detalleGPP = `Último mes (${mesUlt}): $${valUlt.toLocaleString('es-AR')} ÷ ${cant} socios`; }
+                html += `<tr id="expand-${safeId}" class="expanded-row"><td colspan="${mesesContables.length + 3}"><div style="padding:15px; display:flex; gap:20px; background:white;"><div style="flex:1; height:200px;"><canvas id="chart-${safeId}"></canvas></div><div style="width:280px; background:#f9f9f9; padding:15px; border:1px solid #ccc;">Lugar: <select onchange="actualizarEspacioTaller('${taller}', 'espacio', this.value)"><option value="Ninguno" ${eA==='Ninguno'?'selected':''}>Ninguno</option><option value="Salon" ${eA==='Salon'?'selected':''}>Salón</option><option value="Sala" ${eA==='Sala'?'selected':''}>Sala</option></select><br>Horas/Sem: <input type="number" value="${hs}" oninput="marcarCambiosContables()" onchange="actualizarEspacioTaller('${taller}', 'horas', this.value)" style="width:60px;"><br><br><b>Balance: ${bM>0?'+':''}$${bM.toLocaleString()}</b><br><br><b>Ganancia por persona:</b><br><span style="font-size:1.15rem; font-weight:800; color:#27ae60;">$${gPP.toLocaleString('es-AR')}</span><br><small style="color:#666; display:block; margin-top:2px;">${detalleGPP}</small></div></div></td></tr>`;
             });
             html += `<tr class="totales-row"><td colspan="2">TOTAL</td>`; mesesContables.forEach(mes => html += `<td>$ ${totalesMes[mes].toLocaleString('es-AR')}</td>`); html += `<td>$ ${granTotalAnual.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
             document.getElementById('tab-content-talleres').innerHTML = html;
@@ -1411,7 +1470,7 @@
             let tE = { "Ene":0, "Feb":0, "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }, gTE = 0;
             listaEgresos.forEach(eg => {
                 let sEg = eg.replace(/[^a-zA-Z0-9]/g, ''); html += `<tr><td>${eg}</td>`; let te = 0;
-                mesesLista.forEach(m => { let v = datosEgresos[eg][m] || 0; tE[m] += v; te += v; html += `<td><input type="number" id="egr-${sEg}-${m}" class="input-monto" value="${v > 0 ? v : ''}" onchange="actualizarMontoEgreso('${eg}', '${m}', this.value)" style="color:red;"></td>`; });
+                mesesLista.forEach(m => { let v = datosEgresos[eg][m] || 0; tE[m] += v; te += v; html += `<td><input type="number" id="egr-${sEg}-${m}" class="input-monto" value="${v > 0 ? v : ''}" oninput="marcarCambiosContables()" onchange="actualizarMontoEgreso('${eg}', '${m}', this.value)" style="color:red;"></td>`; });
                 gTE += te; html += `<td style="color:red; font-weight:700;">$ ${te.toLocaleString('es-AR')}</td></tr>`;
             });
             html += `<tr class="totales-row" style="background:#c0392b !important;"><td>SUBTOTAL EGRESOS</td>`; mesesLista.forEach(m => html += `<td>$ ${tE[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gTE.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
@@ -1429,20 +1488,20 @@
         function cerrarModalAjustes(e) { if(e && e.target.classList.contains('form-input')) return; document.getElementById('modalAjustes').classList.remove('open'); renderTablaFlujoCaja(); }
         function renderListaAjustes() {
             let c = document.getElementById('listaAjustesContainer'), h = '', fj = datosContables["_EXTRAS_"].fijos, ex = datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual] || [];
-            fj.forEach(f => { let v = datosContables["_EXTRAS_"].valoresFijos[f.id][mesAjusteActual] || 0; h += `<div style="display:flex; justify-content:space-between; padding:5px;"><span>${f.desc}</span> <input type="number" value="${v}" onchange="actualizarAjusteFijo('${f.id}', this.value)" style="width:70px;"> <button onclick="eliminarAjusteFijo('${f.id}')">✖</button></div>`; });
+            fj.forEach(f => { let v = datosContables["_EXTRAS_"].valoresFijos[f.id][mesAjusteActual] || 0; h += `<div style="display:flex; justify-content:space-between; padding:5px;"><span>${f.desc}</span> <input type="number" value="${v}" oninput="marcarCambiosContables()" onchange="actualizarAjusteFijo('${f.id}', this.value)" style="width:70px;"> <button onclick="eliminarAjusteFijo('${f.id}')">✖</button></div>`; });
             ex.forEach(x => { h += `<div style="display:flex; justify-content:space-between; padding:5px; background:#eee;"><span>${x.desc}</span> <b>$${x.monto}</b> <button onclick="eliminarAjusteExtra('${x.id}')">✖</button></div>`; });
             c.innerHTML = h;
         }
-        function agregarAjuste() { let d = document.getElementById('ajDesc').value, m = parseFloat(document.getElementById('ajMonto').value), t = document.getElementById('ajTipo').value, f = document.getElementById('ajFrec').value; if(!d || !m) return; let id = 'ex_' + new Date().getTime(); if(f === 'fijo') { datosContables["_EXTRAS_"].fijos.push({ id: id, desc: d, tipo: t }); datosContables["_EXTRAS_"].valoresFijos[id] = {}; mesesLista.forEach(mes => datosContables["_EXTRAS_"].valoresFijos[id][mes] = 0); datosContables["_EXTRAS_"].valoresFijos[id][mesAjusteActual] = m; } else { datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual].push({ id: id, desc: d, monto: m, tipo: t }); } localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
-        function actualizarAjusteFijo(id, v) { datosContables["_EXTRAS_"].valoresFijos[id][mesAjusteActual] = parseFloat(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
-        function eliminarAjusteFijo(id) { datosContables["_EXTRAS_"].fijos = datosContables["_EXTRAS_"].fijos.filter(f => f.id !== id); delete datosContables["_EXTRAS_"].valoresFijos[id]; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
-        function eliminarAjusteExtra(id) { datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual] = datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual].filter(x => x.id !== id); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
-        function actualizarPrecioGlobal(c, v) { datosContables["_GLOBAL_"][c] = parseFloat(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
-        function actualizarEspacioTaller(t, c, v) { if(c === 'horas') datosContables[t].horas = parseFloat(v) || 0; else datosContables[t].espacio = v; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
-        function actualizarMontoEgreso(e, m, v) { datosEgresos[e][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos)); let a = document.activeElement ? document.activeElement.id : null; renderTablaFlujoCaja(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
+        function agregarAjuste() { let d = document.getElementById('ajDesc').value, m = parseFloat(document.getElementById('ajMonto').value), t = document.getElementById('ajTipo').value, f = document.getElementById('ajFrec').value; if(!d || !m) return; let id = 'ex_' + new Date().getTime(); if(f === 'fijo') { datosContables["_EXTRAS_"].fijos.push({ id: id, desc: d, tipo: t }); datosContables["_EXTRAS_"].valoresFijos[id] = {}; mesesLista.forEach(mes => datosContables["_EXTRAS_"].valoresFijos[id][mes] = 0); datosContables["_EXTRAS_"].valoresFijos[id][mesAjusteActual] = m; } else { datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual].push({ id: id, desc: d, monto: m, tipo: t }); } marcarCambiosContables(); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
+        function actualizarAjusteFijo(id, v) { marcarCambiosContables(); datosContables["_EXTRAS_"].valoresFijos[id][mesAjusteActual] = parseFloat(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
+        function eliminarAjusteFijo(id) { marcarCambiosContables(); datosContables["_EXTRAS_"].fijos = datosContables["_EXTRAS_"].fijos.filter(f => f.id !== id); delete datosContables["_EXTRAS_"].valoresFijos[id]; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
+        function eliminarAjusteExtra(id) { marcarCambiosContables(); datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual] = datosContables["_EXTRAS_"].extraordinarios[mesAjusteActual].filter(x => x.id !== id); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderListaAjustes(); }
+        function actualizarPrecioGlobal(c, v) { marcarCambiosContables(); datosContables["_GLOBAL_"][c] = parseFloat(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
+        function actualizarEspacioTaller(t, c, v) { marcarCambiosContables(); if(c === 'horas') datosContables[t].horas = parseFloat(v) || 0; else datosContables[t].espacio = v; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
+        function actualizarMontoEgreso(e, m, v) { marcarCambiosContables(); datosEgresos[e][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos)); let a = document.activeElement ? document.activeElement.id : null; renderTablaFlujoCaja(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
         function toggleTallerChart(t) { let sId = t.replace(/[^a-zA-Z0-9]/g, ''); let r = document.getElementById('expand-' + sId); if(r.classList.contains('open')) { r.classList.remove('open'); expandedTalleres.delete(t); } else { r.classList.add('open'); expandedTalleres.add(t); renderChart(t); } }
         function renderChart(t) { let c = document.getElementById('chart-' + t.replace(/[^a-zA-Z0-9]/g, '')); if(!c) return; if(chartInstances[t]) chartInstances[t].destroy(); chartInstances[t] = new Chart(c.getContext('2d'), { type: 'line', data: { labels: mesesContables, datasets: [{ label: '$', data: mesesContables.map(m => datosContables[t][m] || 0), borderColor: coloresTalleres[t] || '#3498db', backgroundColor: (coloresTalleres[t] || '#3498db') + '20', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
-        function actualizarMontoContable(t, m, v) { datosContables[t][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
+        function actualizarMontoContable(t, m, v) { marcarCambiosContables(); datosContables[t][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
 
         // ==========================================
         // MÓDULO CALENDARIO (ALQUILERES)
