@@ -18,6 +18,8 @@
         .tabla-contable th:first-child, .tabla-contable td:first-child { min-width: 110px !important; font-size: 0.7rem !important; }
         .celda-monto { min-width: 62px !important; }
         .input-monto { font-size: 0.75rem !important; padding: 1px !important; }
+        .btn-guardar-flotante { position: fixed; bottom: 24px; right: 24px; z-index: 1500; padding: 12px 20px; background: #8e44ad; color: #fff; border: none; border-radius: 50px; font-weight: 700; font-size: .85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(142,68,173,0.4); transition: .2s; }
+        .btn-guardar-flotante:hover { background: #732d91; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(142,68,173,0.5); }
         #calendar-container { height: calc(100vh - 120px) !important; display: flex !important; flex-direction: column !important; }
         .notas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
         .nota-card { background: #2c3e50; color: white; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top:4px solid var(--accent); }
@@ -1314,7 +1316,7 @@
         }
 
         function renderTabsContables() {
-            document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div>`;
+            document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button>`;
             renderTablaTalleres(); renderTablaFlujoCaja();
         }
         function switchContableTab(tabName) {
@@ -1329,7 +1331,7 @@
             listaTalleres.forEach(t => { if(!datosContables[t]) datosContables[t] = {}; if(datosContables[t].horas === undefined) datosContables[t].horas = 0; if(datosContables[t].espacio === undefined) datosContables[t].espacio = "Ninguno"; mesesContables.forEach(m => { if(datosContables[t][m] === undefined) datosContables[t][m] = 0; }); });
             let inscriptosActivos = {}; listaTalleres.forEach(t => inscriptosActivos[t] = 0);
             sociosData.forEach(s => { if (s.estadoCalculado !== 'inactivo') s.talleres.forEach(t => { if (inscriptosActivos[t] !== undefined) inscriptosActivos[t]++; }); });
-            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 20px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div><button class="btn-sync-mp" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div><div class="contable-container"><table class="tabla-contable"><thead><tr><th>TALLER</th><th>SOCIOS</th>`;
+            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 20px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div><div class="contable-container"><table class="tabla-contable"><thead><tr><th>TALLER</th><th>SOCIOS</th>`;
             mesesContables.forEach(m => html += `<th>${m}</th>`); html += `<th>ANUAL</th></tr></thead><tbody>`;
             let totalesMes = { "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }; let granTotalAnual = 0;
             listaTalleres.forEach(taller => {
