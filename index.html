@@ -38,7 +38,7 @@
         .agenda-card-densa { min-height: calc((100vh - 260px) / 3); max-height: calc((100vh - 260px) / 3); }
         .agenda-card-head { padding: 10px 12px; font-weight: 800; font-size: .78rem; letter-spacing: .3px; text-transform: uppercase; color: #fff; background: var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
         .agenda-card-head .agenda-head-main { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
-        .agenda-card-head .agenda-head-main > span { overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; flex: 1; min-width: 0; }
+        .agenda-card-head .agenda-head-main > span { overflow: visible; text-overflow: clip; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; flex: 1; min-width: 0; }
         .agenda-rename { border: none; background: rgba(255,255,255,0.15); color: #fff; border-radius: 4px; cursor: pointer; font-size: .7rem; line-height: 1; padding: 3px 5px; flex-shrink: 0; opacity: .85; }
         .agenda-rename:hover { background: rgba(255,255,255,0.3); opacity: 1; }
         .agenda-card-head .agenda-count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 8px; font-size: .65rem; }
@@ -501,6 +501,19 @@
         </div>
     </div>
 
+    <div id="modalRenombrarRubro" class="modal-overlay" onclick="cerrarModalRenombrarRubro(event)">
+        <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 440px;">
+            <h3 id="renameRubroTitle" style="color:var(--primary); margin-bottom:15px;">✎ Editar título de tarjeta</h3>
+            <label class="form-label">TÍTULO</label>
+            <textarea id="renameRubroInput" class="form-input" rows="4" style="resize:vertical; min-height:90px; white-space:pre-wrap;" placeholder="Título de la categoría" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();confirmarRenombrarRubro();}"></textarea>
+            <p style="font-size:.72rem; color:#7f8c8d; margin:8px 0 0;">Tip: <b>Shift + Enter</b> agrega un salto de línea. <b>Enter</b> guarda.</p>
+            <div class="modal-buttons" style="margin-top:20px;">
+                <button class="modal-btn btn-cancelar" onclick="cerrarModalRenombrarRubro(null)">Cancelar</button>
+                <button class="modal-btn btn-confirmar" style="background:#8e44ad;" onclick="confirmarRenombrarRubro()">Guardar título</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALES BUFFET -->
     <div id="modalBuffetInsumo" class="modal-overlay" onclick="document.getElementById('modalBuffetInsumo').classList.remove('open')">
         <div class="modal-box form-modal" onclick="event.stopPropagation()">
@@ -766,7 +779,10 @@
         let agendaTabActual = 'oficios';
         let agendaModalSeccion = null;
         let agendaModalEditId = null;
+        let renameModalSeccion = null;
+        let renameModalViejo = null;
         const OFICIOS_BASE = ['Albañilería', 'Plomería', 'Electricidad', 'Jardinería', 'Techista', 'Herrero'];
+        const COMERCIOS_BASE = ['Gráfica', 'Ferretería', 'Pinturería', 'Vivero', 'Empanadas', 'Bebidas a consignación', 'Artículos limpieza'];
         const AGENDA_CONF = {
             oficios: {
                 titulo: 'Oficios',
@@ -803,6 +819,7 @@
                 btn: '🏪 Comercios',
                 fields: [
                     { k: 'nombre', type: 'text', label: 'NOMBRE COMERCIO', placeholder: 'Ej: Librería El Faro', required: true },
+                    { k: 'rubro', type: 'text', label: 'RUBRO COMERCIO', placeholder: 'Ej: Ferretería', list: 'agendaRubrosComerciosList' },
                     { k: 'direccion', type: 'direccion', label: 'DIRECCIÓN', required: true },
                     { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
                     { k: 'correo', type: 'email', label: 'CORREO (opcional)', placeholder: 'comercio@ejemplo.com' },
@@ -829,6 +846,12 @@
             return a.rubrosBase;
         }
 
+        function rubrosBaseComercios() {
+            const a = datosAgenda();
+            if(!Array.isArray(a.rubrosBaseComercios) || !a.rubrosBaseComercios.length) a.rubrosBaseComercios = COMERCIOS_BASE.slice();
+            return a.rubrosBaseComercios;
+        }
+
         function rubrosOficiosAgenda() {
             const base = rubrosBaseOficios();
             const extras = [];
@@ -839,26 +862,77 @@
             return base.concat(extras);
         }
 
-        function renombrarRubroOficio(viejo) {
-            const actual = String(viejo || '').trim();
-            if(!actual) return;
-            const nuevo = prompt('Nuevo nombre de la categoría:', actual);
-            if(nuevo == null) return;
-            const destino = String(nuevo).trim();
-            if(!destino || destino === actual) return;
+        function rubrosComerciosAgenda() {
+            const base = rubrosBaseComercios();
+            const extras = [];
+            (datosAgenda().comercios || []).forEach(c => {
+                const r = String(c.rubro || '').trim();
+                if(r && !base.includes(r) && !extras.includes(r)) extras.push(r);
+            });
+            return base.concat(extras);
+        }
+
+        function listaRubrosParaSeccion(seccion) {
+            return seccion === 'comercios' ? rubrosComerciosAgenda() : rubrosOficiosAgenda();
+        }
+
+        function refreshDatalistsAgenda() {
+            const of = document.getElementById('agendaRubrosList');
+            if(of) of.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
+            const co = document.getElementById('agendaRubrosComerciosList');
+            if(co) co.innerHTML = rubrosComerciosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
+        }
+
+        function renombrarRubroAgenda(seccion, viejo) {
+            if(seccion !== 'oficios' && seccion !== 'comercios') return;
+            const actual = String(viejo || '');
+            if(!actual.trim()) return;
+            renameModalSeccion = seccion;
+            renameModalViejo = actual;
+            const ta = document.getElementById('renameRubroInput');
+            const title = document.getElementById('renameRubroTitle');
+            if(title) title.innerText = seccion === 'comercios' ? '✎ Editar rubro de comercio' : '✎ Editar título de tarjeta';
+            if(ta) ta.value = actual;
+            document.getElementById('modalRenombrarRubro').classList.add('open');
+            if(ta) setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 50);
+        }
+
+        function cerrarModalRenombrarRubro(e) {
+            if(e && e.target && e.target.classList && e.target.classList.contains('form-input')) return;
+            const m = document.getElementById('modalRenombrarRubro');
+            if(!e || e.target === m) {
+                m.classList.remove('open');
+                renameModalSeccion = null;
+                renameModalViejo = null;
+            }
+        }
+
+        function confirmarRenombrarRubro() {
+            const seccion = renameModalSeccion;
+            const actual = renameModalViejo;
+            if(!seccion || actual == null) return;
+            const ta = document.getElementById('renameRubroInput');
+            const destino = String(ta ? ta.value : '').replace(/\r/g, '');
+            if(!destino.trim()) { alert('El título no puede estar vacío.'); return; }
+            if(destino === actual) { cerrarModalRenombrarRubro(null); return; }
             const a = datosAgenda();
-            const base = rubrosBaseOficios();
-            const existeOtro = base.includes(destino) || (a.oficios || []).some(c => String(c.rubro || '').trim() === destino);
-            if(existeOtro) { alert(`Ya existe una categoría llamada "${destino}". Cambiá el nombre o editá esa tarjeta.`); return; }
-            (a.oficios || []).forEach(c => { if(String(c.rubro || '').trim() === actual) c.rubro = destino; });
+            const items = a[seccion] || [];
+            const base = seccion === 'comercios' ? rubrosBaseComercios() : rubrosBaseOficios();
+            const existeOtro = base.includes(destino) || items.some(c => String(c.rubro || '') === destino);
+            if(existeOtro) { alert(`Ya existe una categoría con ese título. Cambiá el nombre o editá esa tarjeta.`); return; }
+            items.forEach(c => { if(String(c.rubro || '') === actual) c.rubro = destino; });
             const idx = base.indexOf(actual);
             if(idx !== -1) base[idx] = destino;
+            if(seccion === 'comercios') a.rubrosBaseComercios = base;
             else a.rubrosBase = base;
-            a.rubrosBase = base;
             persistirAgendaLocal();
-            const dl = document.getElementById('agendaRubrosList');
-            if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
-            renderAgendaSeccion('oficios');
+            refreshDatalistsAgenda();
+            cerrarModalRenombrarRubro(null);
+            renderAgendaSeccion(seccion);
+        }
+
+        function renombrarRubroOficio(viejo) {
+            renombrarRubroAgenda('oficios', viejo);
         }
 
         function renderAgendaContactos() {
@@ -971,13 +1045,20 @@
             if(!root) return;
             const items = datosAgenda()[seccion] || [];
             let html = '';
-            if(seccion === 'oficios') {
+            if(seccion === 'oficios' || seccion === 'comercios') {
+                const rubros = seccion === 'comercios' ? rubrosComerciosAgenda() : rubrosOficiosAgenda();
+                const cardCls = 'agenda-card agenda-card-oficio';
+                const headBg = seccion === 'comercios' ? 'background:#b9770e;' : '';
+                const badgeFn = seccion === 'comercios' ? contactoComercioHTML : contactoOficioHTML;
+                const vacio = seccion === 'comercios' ? 'Sin comercios en este rubro. Tocá + para sumar.' : 'Sin contactos. Tocá + para sumar.';
                 html += `<div class="agenda-grid agenda-grid-oficios">`;
-                rubrosOficiosAgenda().forEach(rubro => {
-                    const exactos = items.filter(c => String(c.rubro || '').trim() === rubro);
-                    html += `<div class="agenda-card agenda-card-oficio">
-                        <div class="agenda-card-head"><div class="agenda-head-main"><span style="${rubro.length > 28 ? 'font-size:.6rem;' : (rubro.length > 16 ? 'font-size:.7rem;' : '')}">${escaparHTMLTexto(rubro)}</span><button type="button" class="agenda-rename" title="Editar nombre de la categoría" onclick="event.stopPropagation(); renombrarRubroOficio(decodeURIComponent('${encodeURIComponent(rubro)}'))">✎</button></div><span class="agenda-count">${exactos.length}</span></div>
-                        <div class="agenda-card-body">${exactos.length ? exactos.map(contactoOficioHTML).join('') : '<div class="agenda-vacio">Sin contactos. Tocá + para sumar.</div>'}</div>
+                rubros.forEach(rubro => {
+                    const exactos = items.filter(c => String(c.rubro || '') === rubro);
+                    const lineas = rubro.split('\n').length;
+                    const fs = rubro.length > 28 || lineas > 2 ? 'font-size:.6rem;' : (rubro.length > 16 ? 'font-size:.7rem;' : '');
+                    html += `<div class="${cardCls}">
+                        <div class="agenda-card-head"${headBg ? ` style="${headBg}"` : ''}><div class="agenda-head-main"><span style="${fs}">${escaparHTMLTexto(rubro)}</span><button type="button" class="agenda-rename" title="Editar nombre de la categoría" onclick="event.stopPropagation(); renombrarRubroAgenda('${seccion}', decodeURIComponent('${encodeURIComponent(rubro)}'))">✎</button></div><span class="agenda-count">${exactos.length}</span></div>
+                        <div class="agenda-card-body">${exactos.length ? exactos.map(badgeFn).join('') : `<div class="agenda-vacio">${vacio}</div>`}</div>
                     </div>`;
                 });
                 html += `</div>`;
@@ -986,11 +1067,6 @@
                 if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin contactos artísticos. Tocá + para sumar.</div>`;
                 else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#8e44ad;"><span>🎭 Arte</span></div><div class="agenda-card-body">${contactoArtisticoHTML(c)}</div></div>`; });
                 html += `</div>`;
-            } else if(seccion === 'comercios') {
-                html += `<div class="agenda-grid agenda-grid-densa">`;
-                if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin comercios. Tocá + para sumar.</div>`;
-                else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#b9770e;"><span>🏪 Comercio</span></div><div class="agenda-card-body">${contactoComercioHTML(c)}</div></div>`; });
-                html += `</div>`;
             } else {
                 html += `<div class="agenda-grid agenda-grid-densa">`;
                 if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin contactos institucionales. Tocá + para sumar.</div>`;
@@ -998,10 +1074,7 @@
                 html += `</div>`;
             }
             root.innerHTML = html;
-            if(seccion === 'oficios') {
-                const dl = document.getElementById('agendaRubrosList');
-                if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
-            }
+            if(seccion === 'oficios' || seccion === 'comercios') refreshDatalistsAgenda();
         }
 
         function agendaDireccionFieldsHTML(v) {
@@ -1115,8 +1188,9 @@
                 } else if(f.type === 'textarea') {
                     html += `<textarea id="agModal_${f.k}" class="form-input" rows="3" placeholder="${escaparHTMLTexto(f.placeholder || '')}" style="resize:vertical;">${val}</textarea>`;
                 } else {
+                    const opcionesRubro = f.list === 'agendaRubrosComerciosList' ? rubrosComerciosAgenda() : rubrosOficiosAgenda();
                     html += `<input type="${f.type}" id="agModal_${f.k}" class="form-input" placeholder="${escaparHTMLTexto(f.placeholder || '')}" value="${val}"${f.list ? ` list="${f.list}"` : ''}>`;
-                    if(f.list) html += `<datalist id="${f.list}">${rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('')}</datalist>`;
+                    if(f.list) html += `<datalist id="${f.list}">${opcionesRubro.map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('')}</datalist>`;
                 }
                 html += `</div>`;
             });
@@ -1169,6 +1243,7 @@
             if(!datos.nombre) { alert(seccion === 'comercios' ? 'Ingresá el Nombre del comercio.' : 'Ingresá el Nombre y apellido.'); return; }
             if(seccion === 'oficios' && !datos.rubro) datos.rubro = rubrosBaseOficios()[0];
             if(seccion === 'comercios') {
+                if(!datos.rubro) datos.rubro = rubrosBaseComercios()[0];
                 if(!datos.direccion) { alert('Ingresá la dirección del comercio.'); return; }
                 if(!datos.localidad) { alert('Ingresá la localidad.'); return; }
                 if(!datos.provincia) { alert('Ingresá la provincia.'); return; }
@@ -1186,8 +1261,7 @@
             agendaModalSeccion = null;
             agendaModalEditId = null;
             renderAgendaSeccion(seccion);
-            const dl = document.getElementById('agendaRubrosList');
-            if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
+            refreshDatalistsAgenda();
         }
 
         function eliminarContactoAgenda(seccion, id) {
