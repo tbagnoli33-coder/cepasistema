@@ -38,7 +38,7 @@
         .agenda-card-densa { min-height: calc((100vh - 260px) / 3); max-height: calc((100vh - 260px) / 3); }
         .agenda-card-head { padding: 10px 12px; font-weight: 800; font-size: .78rem; letter-spacing: .3px; text-transform: uppercase; color: #fff; background: var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
         .agenda-card-head .agenda-head-main { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
-        .agenda-card-head .agenda-head-main > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .agenda-card-head .agenda-head-main > span { overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; flex: 1; min-width: 0; }
         .agenda-rename { border: none; background: rgba(255,255,255,0.15); color: #fff; border-radius: 4px; cursor: pointer; font-size: .7rem; line-height: 1; padding: 3px 5px; flex-shrink: 0; opacity: .85; }
         .agenda-rename:hover { background: rgba(255,255,255,0.3); opacity: 1; }
         .agenda-card-head .agenda-count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 8px; font-size: .65rem; }
@@ -797,6 +797,18 @@
                     { k: 'institucion', type: 'text', label: 'INSTITUCIÓN', placeholder: 'Ej: Municipalidad...' },
                     { k: 'vinculo', type: 'text', label: 'QUIÉN LO TRAJO / CONTACTO CERCANO', placeholder: 'Ej: María López (quien lo acercó)' }
                 ]
+            },
+            comercios: {
+                titulo: 'Comercios',
+                btn: '🏪 Comercios',
+                fields: [
+                    { k: 'nombre', type: 'text', label: 'NOMBRE COMERCIO', placeholder: 'Ej: Librería El Faro', required: true },
+                    { k: 'direccion', type: 'direccion', label: 'DIRECCIÓN', required: true },
+                    { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
+                    { k: 'correo', type: 'email', label: 'CORREO (opcional)', placeholder: 'comercio@ejemplo.com' },
+                    { k: 'factura', type: 'select', label: 'TIENE DATOS PARA FACTURA', opts: ['Sí', 'Aun no', 'Sin factura'] },
+                    { k: 'observaciones', type: 'textarea', label: 'OBSERVACIONES (opcional)', placeholder: 'Horarios, referencias, etc.' }
+                ]
             }
         };
 
@@ -886,6 +898,38 @@
             return `<span class="agenda-badge muted">Por: ${escaparHTMLTexto(t)}</span>`;
         }
 
+        function badgeFacturaComercio(v) {
+            const t = String(v || 'Aun no');
+            const cls = t === 'Sí' ? 'ok' : (t === 'Sin factura' ? 'muted' : 'warn');
+            return `<span class="agenda-badge ${cls}">Factura: ${escaparHTMLTexto(t)}</span>`;
+        }
+
+        function direccionCompletaComercio(c) {
+            return [c.direccion, c.localidad, c.provincia, c.pais].map(s => String(s || '').trim()).filter(Boolean).join(', ');
+        }
+
+        function mapsUrlComercio(c) {
+            const partes = [c.direccion, c.localidad, c.provincia, c.pais].map(s => String(s || '').trim()).filter(Boolean);
+            if(!partes.length) return '';
+            return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(partes.join(', '));
+        }
+
+        function contactoComercioHTML(c) {
+            const mapa = mapsUrlComercio(c);
+            const dir = direccionCompletaComercio(c);
+            const correo = String(c.correo || '').trim();
+            const obs = String(c.observaciones || '').trim();
+            return `<div class="agenda-contacto" onclick="abrirModalAgendaContacto('comercios','${c.id}')" title="Editar">
+                <button type="button" class="agenda-del" title="Eliminar" onclick="event.stopPropagation(); eliminarContactoAgenda('comercios','${c.id}')">✕</button>
+                <div class="ac-nombre">${escaparHTMLTexto(c.nombre || 'Sin nombre')}</div>
+                <div class="ac-meta">${telHTML(c.telefono)}</div>
+                ${dir ? (mapa ? `<div class="ac-meta"><a class="ac-tel" href="${mapa}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">📍 ${escaparHTMLTexto(dir)}</a></div>` : `<div class="ac-meta">📍 ${escaparHTMLTexto(dir)}</div>`) : ''}
+                ${correo ? `<div class="ac-meta"><a class="ac-tel" href="mailto:${escaparHTMLTexto(correo)}" onclick="event.stopPropagation()">✉️ ${escaparHTMLTexto(correo)}</a></div>` : ''}
+                ${badgeFacturaComercio(c.factura)}
+                ${obs ? `<div class="ac-meta" style="margin-top:4px; font-style:italic;">${escaparHTMLTexto(obs)}</div>` : ''}
+            </div>`;
+        }
+
         function telHTML(tel) {
             const t = String(tel || '').trim();
             if(!t) return `<span class="ac-meta">Sin teléfono</span>`;
@@ -932,7 +976,7 @@
                 rubrosOficiosAgenda().forEach(rubro => {
                     const exactos = items.filter(c => String(c.rubro || '').trim() === rubro);
                     html += `<div class="agenda-card agenda-card-oficio">
-                        <div class="agenda-card-head"><div class="agenda-head-main"><span>${escaparHTMLTexto(rubro)}</span><button type="button" class="agenda-rename" title="Editar nombre de la categoría" onclick="event.stopPropagation(); renombrarRubroOficio(decodeURIComponent('${encodeURIComponent(rubro)}'))">✎</button></div><span class="agenda-count">${exactos.length}</span></div>
+                        <div class="agenda-card-head"><div class="agenda-head-main"><span style="${rubro.length > 28 ? 'font-size:.6rem;' : (rubro.length > 16 ? 'font-size:.7rem;' : '')}">${escaparHTMLTexto(rubro)}</span><button type="button" class="agenda-rename" title="Editar nombre de la categoría" onclick="event.stopPropagation(); renombrarRubroOficio(decodeURIComponent('${encodeURIComponent(rubro)}'))">✎</button></div><span class="agenda-count">${exactos.length}</span></div>
                         <div class="agenda-card-body">${exactos.length ? exactos.map(contactoOficioHTML).join('') : '<div class="agenda-vacio">Sin contactos. Tocá + para sumar.</div>'}</div>
                     </div>`;
                 });
@@ -941,6 +985,11 @@
                 html += `<div class="agenda-grid agenda-grid-densa">`;
                 if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin contactos artísticos. Tocá + para sumar.</div>`;
                 else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#8e44ad;"><span>🎭 Arte</span></div><div class="agenda-card-body">${contactoArtisticoHTML(c)}</div></div>`; });
+                html += `</div>`;
+            } else if(seccion === 'comercios') {
+                html += `<div class="agenda-grid agenda-grid-densa">`;
+                if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin comercios. Tocá + para sumar.</div>`;
+                else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#b9770e;"><span>🏪 Comercio</span></div><div class="agenda-card-body">${contactoComercioHTML(c)}</div></div>`; });
                 html += `</div>`;
             } else {
                 html += `<div class="agenda-grid agenda-grid-densa">`;
@@ -955,15 +1004,116 @@
             }
         }
 
+        function agendaDireccionFieldsHTML(v) {
+            const val = k => escaparHTMLTexto(v[k] != null ? v[k] : '');
+            const defaultLoc = 'Ciudad Autónoma de Buenos Aires';
+            const defaultProv = 'Ciudad Autónoma de Buenos Aires';
+            const defaultPais = 'Argentina';
+            return `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                <div class="form-group" style="grid-column:1/-1; margin:0;">
+                    <label class="form-label">DIRECCIÓN (calle y número) *</label>
+                    <input type="text" id="agModal_direccion" class="form-input" placeholder="Ej: Av. Congreso 4440" value="${val('direccion')}">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">LOCALIDAD *</label>
+                    <input type="text" id="agModal_localidad" class="form-input" list="listaLocalidadesAR" placeholder="Ej: Villa Urquiza" value="${v.localidad != null ? val('localidad') : escaparHTMLTexto(defaultLoc)}">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label">PROVINCIA *</label>
+                    <input type="text" id="agModal_provincia" class="form-input" list="listaProvinciasAR" placeholder="Ej: CABA" value="${v.provincia != null ? val('provincia') : escaparHTMLTexto(defaultProv)}">
+                </div>
+                <div class="form-group" style="grid-column:1/-1; margin:0;">
+                    <label class="form-label">PAÍS *</label>
+                    <input type="text" id="agModal_pais" class="form-input" list="listaPaisesAR" placeholder="Argentina" value="${v.pais != null ? val('pais') : escaparHTMLTexto(defaultPais)}">
+                </div>
+                <datalist id="listaLocalidadesAR">
+                    <option value="Ciudad Autónoma de Buenos Aires"></option>
+                    <option value="Villa Urquiza"></option>
+                    <option value="Belgrano"></option>
+                    <option value="Palermo"></option>
+                    <option value="Caballito"></option>
+                    <option value="Flores"></option>
+                    <option value="Núñez"></option>
+                    <option value="Saavedra"></option>
+                    <option value="Villa Devoto"></option>
+                    <option value="Almagro"></option>
+                    <option value="Colegiales"></option>
+                    <option value="Recoleta"></option>
+                    <option value="Retiro"></option>
+                    <option value="San Telmo"></option>
+                    <option value="La Boca"></option>
+                    <option value="Mataderos"></option>
+                    <option value="Liniers"></option>
+                    <option value="Villa Crespo"></option>
+                    <option value="Chacarita"></option>
+                    <option value="Paternal"></option>
+                    <option value="Villa Ortúzar"></option>
+                    <option value="Carranza"></option>
+                    <option value="San Isidro"></option>
+                    <option value="Vicente López"></option>
+                    <option value="San Martín"></option>
+                    <option value="Tigre"></option>
+                    <option value="San Fernando"></option>
+                    <option value="Morón"></option>
+                    <option value="Ituzaingó"></option>
+                    <option value="Hurlingham"></option>
+                    <option value="Merlo"></option>
+                    <option value="Moreno</option>
+                    <option value="La Matanza"></option>
+                    <option value="Avellaneda"></option>
+                    <option value="Lanús"></option>
+                    <option value="Quilmes"></option>
+                    <option value="Berazategui"></option>
+                </datalist>
+                <datalist id="listaProvinciasAR">
+                    <option value="Ciudad Autónoma de Buenos Aires"></option>
+                    <option value="Buenos Aires"></option>
+                    <option value="Catamarca"></option>
+                    <option value="Chaco"></option>
+                    <option value="Chubut"></option>
+                    <option value="Córdoba"></option>
+                    <option value="Corrientes"></option>
+                    <option value="Entre Ríos"></option>
+                    <option value="Formosa"></option>
+                    <option value="Jujuy"></option>
+                    <option value="La Pampa"></option>
+                    <option value="La Rioja"></option>
+                    <option value="Mendoza"></option>
+                    <option value="Misiones"></option>
+                    <option value="Neuquén"></option>
+                    <option value="Río Negro"></option>
+                    <option value="Salta"></option>
+                    <option value="San Juan"></option>
+                    <option value="San Luis"></option>
+                    <option value="Santa Cruz"></option>
+                    <option value="Santa Fe"></option>
+                    <option value="Santiago del Estero"></option>
+                    <option value="Tierra del Fuego"></option>
+                    <option value="Tucumán"></option>
+                </datalist>
+                <datalist id="listaPaisesAR">
+                    <option value="Argentina"></option>
+                    <option value="Uruguay"></option>
+                    <option value="Chile"></option>
+                    <option value="Brasil"></option>
+                    <option value="Paraguay"></option>
+                    <option value="Bolivia"></option>
+                </datalist>
+            </div>`;
+        }
+
         function agendaFieldsHTML(seccion, valores) {
             const conf = AGENDA_CONF[seccion];
             const v = valores || {};
             let html = '';
             conf.fields.forEach(f => {
+                if(f.type === 'direccion') { html += agendaDireccionFieldsHTML(v); return; }
                 const val = escaparHTMLTexto(v[f.k] != null ? v[f.k] : (f.type === 'select' ? f.opts[0] : ''));
                 html += `<div class="form-group" style="margin-bottom:12px;"><label class="form-label">${f.label}${f.required ? ' *' : ''}</label>`;
                 if(f.type === 'select') {
                     html += `<select id="agModal_${f.k}" class="form-input">${f.opts.map(o => `<option value="${escaparHTMLTexto(o)}"${v[f.k] === o || (v[f.k] == null && o === f.opts[0]) ? ' selected' : ''}>${escaparHTMLTexto(o)}</option>`).join('')}</select>`;
+                } else if(f.type === 'textarea') {
+                    html += `<textarea id="agModal_${f.k}" class="form-input" rows="3" placeholder="${escaparHTMLTexto(f.placeholder || '')}" style="resize:vertical;">${val}</textarea>`;
                 } else {
                     html += `<input type="${f.type}" id="agModal_${f.k}" class="form-input" placeholder="${escaparHTMLTexto(f.placeholder || '')}" value="${val}"${f.list ? ` list="${f.list}"` : ''}>`;
                     if(f.list) html += `<datalist id="${f.list}">${rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('')}</datalist>`;
@@ -1006,11 +1156,24 @@
             const conf = AGENDA_CONF[seccion];
             let datos = {};
             conf.fields.forEach(f => {
+                if(f.type === 'direccion') {
+                    ['direccion', 'localidad', 'provincia', 'pais'].forEach(k => {
+                        const el = document.getElementById('agModal_' + k);
+                        datos[k] = el ? String(el.value || '').trim() : '';
+                    });
+                    return;
+                }
                 const el = document.getElementById('agModal_' + f.k);
                 datos[f.k] = el ? String(el.value || '').trim() : '';
             });
-            if(!datos.nombre) { alert('Ingresá el Nombre y apellido.'); return; }
+            if(!datos.nombre) { alert(seccion === 'comercios' ? 'Ingresá el Nombre del comercio.' : 'Ingresá el Nombre y apellido.'); return; }
             if(seccion === 'oficios' && !datos.rubro) datos.rubro = rubrosBaseOficios()[0];
+            if(seccion === 'comercios') {
+                if(!datos.direccion) { alert('Ingresá la dirección del comercio.'); return; }
+                if(!datos.localidad) { alert('Ingresá la localidad.'); return; }
+                if(!datos.provincia) { alert('Ingresá la provincia.'); return; }
+                if(!datos.pais) datos.pais = 'Argentina';
+            }
             if(agendaModalEditId) {
                 const c = (datosAgenda()[seccion] || []).find(x => x.id === agendaModalEditId);
                 if(c) Object.assign(c, datos);
@@ -2483,6 +2646,7 @@
             if(!Array.isArray(a.oficios)) a.oficios = [];
             if(!Array.isArray(a.artisticos)) a.artisticos = [];
             if(!Array.isArray(a.institucionales)) a.institucionales = [];
+            if(!Array.isArray(a.comercios)) a.comercios = [];
         }
 
         function bloqueHistorialHTML() {
