@@ -538,7 +538,7 @@
         const listaEgresos = ["Luz", "Gas", "Agua", "Internet", "Seguro", "Honorarios Contador", "Dispensers", "Asistencia WhatsApp"];
         let chartInstances = {}, expandedTalleres = new Set(), mapInstance = null, geoCache = JSON.parse(localStorage.getItem('cepas_geocache')) || {};
         let mapGeocodeToken = 0;
-        let ultimoCsvTextoMP = null, ultimoNombreArchivoMP = null;
+        let ultimoCsvTextoMP = null, ultimoNombreArchivoMP = null, planesDetectadosMP = {};
         const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" } };
         let usuarioActual = null;
 
@@ -767,6 +767,8 @@
                     if(dataRaw.finanzas.egresos) { datosEgresos = dataRaw.finanzas.egresos; localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos)); }
                     if(dataRaw.finanzas.pruebas) datosPruebas = dataRaw.finanzas.pruebas;
                 }
+                asegurarClavesMP();
+                if(datosContables) localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
                 sociosData = [];
                 dataSocios.forEach(s => {
                     if(!s.ID) return;
@@ -789,6 +791,11 @@
         }
         
         async function guardarBovedaEnNube(isBg = false) {
+            if(!datosContables) datosContables = inicializarDatosContables();
+            if(!datosEgresos) datosEgresos = inicializarDatosEgresos();
+            asegurarClavesMP();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            if(datosEgresos) localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos));
             let p = { contables: datosContables, egresos: datosEgresos, pruebas: datosPruebas };
             try { await fetch(SCRIPT_URL + "?action=guardar_contable", { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(p) }); if(!isBg) alert("✅ Datos respaldados."); } catch(e) { if(!isBg) alert("❌ Error al respaldar."); }
         }
@@ -986,7 +993,8 @@
                 card.className = `socio-card status-${s.estadoCalculado} ${s.profesorDe.length > 0 ? 'is-profe' : ''}`;
                 
                 let mesesHtml = mesesLista.map(m => `<div class='mes-interact ${s.pagos[m] && s.pagos[m] !== "" ? 'pago' : ''}' data-socio-id='${s.id}' data-mes='${m}'>${m}</div>`).join('');
-                let fpTag = s.formaPago === 'MP' ? `<span class='pago-tag-mp'>💳 M. Pago</span>` : s.formaPago === 'MP_CAIDO' ? `<span class='pago-tag-tr' style='background:#fdeaea; color:#c0392b;'>🛑 MP Caído</span>` : s.formaPago === 'EFECTIVO' ? `<span class='pago-tag-ef'>💵 Efectivo</span>` : `<span class='pago-tag-tr'>🏦 Transf.</span>`;
+                let planSufijo = (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') ? ` <span style="font-weight:400; opacity:.85;">${planMPSocio(s)}</span>` : '';
+                let fpTag = s.formaPago === 'MP' ? `<span class='pago-tag-mp'>💳 M. Pago${planSufijo}</span>` : s.formaPago === 'MP_CAIDO' ? `<span class='pago-tag-tr' style='background:#fdeaea; color:#c0392b;'>🛑 MP Caído${planSufijo}</span>` : s.formaPago === 'EFECTIVO' ? `<span class='pago-tag-ef'>💵 Efectivo</span>` : `<span class='pago-tag-tr'>🏦 Transf.</span>`;
                 
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
@@ -1160,6 +1168,7 @@
                 document.getElementById('nsTutor').checked = s.esTutor; 
                 document.getElementById('nsLinkPdf').value = s.linkPdf;
                 document.getElementById('seccionPlanMP').style.display = (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') ? 'block' : 'none';
+                document.getElementById('nsPlanMP').value = planMPSocio(s);
                 container.innerHTML = listaTalleres.map(t => `<label class='workshop-label' style='border-left: 3px solid ${coloresTalleres[t]||'#ccc'}'><input type='checkbox' class='ns-workshop-chk' value='${t}' ${s.talleres.includes(t) ? 'checked' : ''}> ${t}</label>`).join('');
             }
             document.getElementById('modalNuevoSocio').classList.add('open');
@@ -1186,6 +1195,10 @@
 
                 if (formaPago === 'MP') {
                     let tipoPlan = document.getElementById('nsPlanMP').value;
+                    asegurarClavesMP();
+                    datosContables["_MP_PLANES_"][nextId] = tipoPlan;
+                    localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+                    guardarBovedaEnNube(true);
                     if (tipoPlan === 'mensual') {
                         pagosObj[mesesLista[mesActualIdx]] = "x";
                     } else if (tipoPlan === 'semestral') {
@@ -1214,6 +1227,16 @@
                 s.nombre = nombre; s.domicilio = document.getElementById('nsDomicilio').value.trim() || "No registrado";
                 s.dni = document.getElementById('nsDni').value.trim() || "No registrado"; s.telefono = document.getElementById('nsTelefono').value.trim() || "No registrado";
                 s.correo = document.getElementById('nsCorreo').value.trim() || "No registrado"; s.formaPago = formaPago; s.talleres = talleres; s.esTutor = document.getElementById('nsTutor').checked; s.linkPdf = document.getElementById('nsLinkPdf').value.trim();
+                if (formaPago === 'MP') {
+                    asegurarClavesMP();
+                    datosContables["_MP_PLANES_"][s.id] = document.getElementById('nsPlanMP').value;
+                    localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+                    guardarBovedaEnNube(true);
+                } else if (datosContables && datosContables["_MP_PLANES_"] && datosContables["_MP_PLANES_"][s.id] !== undefined) {
+                    delete datosContables["_MP_PLANES_"][s.id];
+                    localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+                    guardarBovedaEnNube(true);
+                }
                 cerrarModalNuevoSocio(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar");
                 if(talleres.length > 0) seleccionarVista('taller', talleres[0]);
             }
@@ -1282,6 +1305,7 @@
             if(!data["_MP_IGNORADOS_"]) data["_MP_IGNORADOS_"] = [];
             if(!data["_MP_VINCULADOS_"]) data["_MP_VINCULADOS_"] = {};
             if(!data["_MP_REPORTES_"]) data["_MP_REPORTES_"] = [];
+            if(!data["_MP_PLANES_"] || typeof data["_MP_PLANES_"] !== 'object' || data["_MP_PLANES_"] === null || Array.isArray(data["_MP_PLANES_"])) data["_MP_PLANES_"] = {};
             return data;
         }
         function inicializarDatosEgresos() {
@@ -1592,6 +1616,68 @@
             return mismoApellido || comunes >= 2;
         }
 
+        function parsearFechaMP(str) {
+            if(!str) return null;
+            let s = String(str).trim();
+            if(!s) return null;
+            let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if(m) return new Date(+m[1], +m[2] - 1, +m[3]);
+            m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if(m) return new Date(+m[3], +m[2] - 1, +m[1]);
+            let d = new Date(s);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function mesesFrecuenciaMP(row, idx) {
+            let f = parseFloat(row[idx.frequency]);
+            if(isNaN(f) || f <= 0) return 0;
+            let t = String(row[idx.frequencyType] || '').toLowerCase();
+            if(t === 'years' || t === 'year') return f * 12;
+            if(t === 'days' || t === 'day') return f / 30;
+            if(t === 'weeks' || t === 'week') return (f * 7) / 30;
+            return f;
+        }
+
+        function detectarPlanMP(row, idx) {
+            let meses = mesesFrecuenciaMP(row, idx);
+            if(meses >= 11.5) return 'anual';
+            if(meses >= 5.5) return 'semestral';
+            let reason = normalizarNombre(row[idx.reason] || '');
+            if(reason.indexOf('ANUAL') !== -1) return 'anual';
+            if(reason.indexOf('SEMESTRAL') !== -1) return 'semestral';
+            if(reason.indexOf('MENSUAL') !== -1) return 'mensual';
+            let planId = String(row[idx.planId] || '');
+            if(planId === '2c9380849385c5cf01939d4c0dd70cb9') return 'anual';
+            if(planId === '2c9380849385c5cf01939d487f650cb4') return 'semestral';
+            if(planId === '2c9380849319a00d019336d080010a6f') return 'mensual';
+            if(meses > 0) return 'mensual';
+            return 'mensual';
+        }
+
+        function esFilaActivaMP(row, idx) {
+            let status = String(row[idx.status] || '').toLowerCase();
+            let billing = String(row[idx.billingStatus] || '').toLowerCase();
+            if(status === 'cancelled' || status === 'rejected') return false;
+            if(status === 'authorized' || status === 'up_to_date') return true;
+            if(billing === 'up_to_date') return true;
+            let last = parsearFechaMP(row[idx.lastCharge]);
+            if(last) {
+                let meses = mesesFrecuenciaMP(row, idx);
+                if(meses > 0) {
+                    let fin = new Date(last.getTime());
+                    fin.setMonth(fin.getMonth() + Math.ceil(meses));
+                    if(fin.getTime() > Date.now()) return true;
+                }
+            }
+            return false;
+        }
+
+        function planMPSocio(socio) {
+            if(!datosContables || !datosContables["_MP_PLANES_"]) return 'mensual';
+            let p = datosContables["_MP_PLANES_"][socio.id];
+            return (p === 'mensual' || p === 'semestral' || p === 'anual') ? p : 'mensual';
+        }
+
         function analizarTextoCSV(csvText, nombreArchivo, registrarHistorial = true) {
             let lines = csvText.split(/\r\n|\n/);
             if(lines.length < 2) {
@@ -1602,6 +1688,13 @@
             let idxStatus = headers.indexOf('status');
             let idxFirstName = headers.indexOf('payer_first_name');
             let idxLastName = headers.indexOf('payer_last_name');
+            let idxPayerId = headers.indexOf('payer_id');
+            let idxReason = headers.indexOf('reason');
+            let idxPlanId = headers.indexOf('preapproval_plan_id');
+            let idxFrequency = headers.indexOf('frequency');
+            let idxFrequencyType = headers.indexOf('frequency_type');
+            let idxBillingStatus = headers.indexOf('billing_status');
+            let idxLastCharge = headers.indexOf('last_charge_date');
 
             if(idxStatus === -1 || idxFirstName === -1) {
                 alert("No se encontraron las columnas necesarias en el CSV de Mercado Pago.");
@@ -1610,28 +1703,33 @@
 
             asegurarClavesMP();
 
-            let mapaEstadosMP = {}; 
+            let idxCols = { status: idxStatus, reason: idxReason, planId: idxPlanId, frequency: idxFrequency, frequencyType: idxFrequencyType, billingStatus: idxBillingStatus, lastCharge: idxLastCharge };
+            let gruposMP = {};
 
             for(let i=1; i<lines.length; i++) {
                 let line = lines[i];
                 if(!line.trim()) continue;
                 let row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/^"|"$/g, ''));
-                let status = (row[idxStatus] || '').toLowerCase();
                 let fName = row[idxFirstName] || '';
                 let lName = row[idxLastName] || '';
                 let fullName = (fName + " " + lName).trim().toUpperCase();
-
-                if(fullName) {
-                    if(!mapaEstadosMP[fullName]) mapaEstadosMP[fullName] = [];
-                    mapaEstadosMP[fullName].push(status);
-                }
+                let payerId = idxPayerId !== -1 ? String(row[idxPayerId] || '').trim() : '';
+                if(!fullName && !payerId) continue;
+                let key = payerId ? ('pid:' + payerId) : ('nm:' + normalizarNombre(fullName));
+                if(!gruposMP[key]) gruposMP[key] = { nombre: fullName, filas: [] };
+                if(fullName && !gruposMP[key].nombre) gruposMP[key].nombre = fullName;
+                gruposMP[key].filas.push({
+                    status: (row[idxStatus] || '').toLowerCase(),
+                    plan: detectarPlanMP(row, idxCols),
+                    activa: esFilaActivaMP(row, idxCols)
+                });
             }
 
             if(registrarHistorial) {
                 let hoy = new Date();
                 let f2 = n => String(n).padStart(2,'0');
                 let fechaStr = `${f2(hoy.getDate())}/${f2(hoy.getMonth()+1)}/${hoy.getFullYear()} ${f2(hoy.getHours())}:${f2(hoy.getMinutes())}`;
-                datosContables["_MP_REPORTES_"].unshift({ fecha: fechaStr, archivo: nombreArchivo || "(desconocido)", cantidad: Object.keys(mapaEstadosMP).length });
+                datosContables["_MP_REPORTES_"].unshift({ fecha: fechaStr, archivo: nombreArchivo || "(desconocido)", cantidad: Object.keys(gruposMP).length });
                 datosContables["_MP_REPORTES_"] = datosContables["_MP_REPORTES_"].slice(0, 5);
                 guardarBovedaEnNube(true);
             }
@@ -1641,26 +1739,37 @@
             let html = bloqueHistorialHTML() + `<b style="color:var(--primary);">Resultados del análisis inteligente de CSV:</b><br><br>`;
             let alertasCount = 0;
             let activosSinSocio = [];
+            let huboCambioPlanes = false;
+            planesDetectadosMP = {};
 
-            for(let nombreMP in mapaEstadosMP) {
-                let estados = mapaEstadosMP[nombreMP];
-                let tieneActiva = estados.some(st => st === 'authorized' || st === 'up_to_date');
+            for(let key in gruposMP) {
+                let g = gruposMP[key];
+                let nombreMP = g.nombre || key;
+                let filaAct = g.filas.find(f => f.activa) || null;
+                let tieneActiva = !!filaAct;
+                let planDetectado = (filaAct || g.filas[0] || {}).plan || 'mensual';
                 let estaRealmenteCaido = !tieneActiva;
+                let badgePlan = ` <span style="background:#e8f4fd; color:#2471a3; border-radius:4px; padding:1px 5px; font-size:0.7rem; font-weight:700;">💳 ${planDetectado}</span>`;
 
                 let sociosMatch = sociosData.filter(s => mismaPersonaPorNombre(nombreMP, s.nombre));
 
                 if(sociosMatch.length > 0) {
                   sociosMatch.forEach(socio => {
+                    planesDetectadosMP[socio.id] = planDetectado;
+                    if(tieneActiva && datosContables["_MP_PLANES_"][socio.id] !== planDetectado) {
+                        datosContables["_MP_PLANES_"][socio.id] = planDetectado;
+                        huboCambioPlanes = true;
+                    }
                     let esActivoSistema = (socio.formaPago === 'MP');
                     if(estaRealmenteCaido && esActivoSistema) {
                         alertasCount++;
                         html += `<div style="padding:6px; border-bottom:1px solid #eee; background:#fdeaea; color:#c0392b; display:flex; justify-content:space-between; align-items:center;">
-                                    <span>⚠️ <b>#${socio.id} - ${socio.nombre}</b> tiene sus suscripciones pausadas/canceladas en MP pero figura ACTIVO en sistema.</span>
+                                    <span>⚠️ <b>#${socio.id} - ${socio.nombre}</b>${badgePlan} tiene sus suscripciones pausadas/canceladas en MP pero figura ACTIVO en sistema.</span>
                                     <button class="btn-micro btn-micro-red" onclick="marcarMPCaido(${socio.id})">Marcar Caído</button>
                                  </div>`;
                     } else if(!estaRealmenteCaido && socio.formaPago === 'MP_CAIDO') {
                         html += `<div style="padding:6px; border-bottom:1px solid #eee; background:#eafaf1; color:#27ae60; display:flex; justify-content:space-between; align-items:center;">
-                                    <span>✅ <b>#${socio.id} - ${socio.nombre}</b> tiene una suscripción activa nueva en MP (Estaba marcado como caído por histórico).</span>
+                                    <span>✅ <b>#${socio.id} - ${socio.nombre}</b>${badgePlan} tiene una suscripción activa nueva en MP (Estaba marcado como caído por histórico).</span>
                                     <button class="btn-micro btn-micro-green" onclick="restaurarMPActivo(${socio.id}); document.getElementById('modalAuditoriaMP').classList.remove('open');">Pasar a Activo</button>
                                  </div>`;
                     }
@@ -1668,19 +1777,31 @@
                 } else if(tieneActiva) {
                     let norm = normalizarNombre(nombreMP);
                     if(!datosContables["_MP_IGNORADOS_"].includes(norm) && !Object.prototype.hasOwnProperty.call(datosContables["_MP_VINCULADOS_"], norm)) {
-                        activosSinSocio.push(nombreMP);
+                        activosSinSocio.push({ nombre: nombreMP, plan: planDetectado });
                     }
                 }
             }
 
+            if(huboCambioPlanes) guardarBovedaEnNube(true);
+
             if(activosSinSocio.length > 0) {
                 html += `<div style="margin-top:12px; padding:8px; background:#fff8e1; border:1px solid #f0d060; border-radius:6px;"><b style="color:#b8860b;">Suscriptores de MP sin socio en el sistema (${activosSinSocio.length}):</b><br><span style="font-size:0.8rem; color:#7f8c8d;">Pagan por MP pero todavía no figuran como socios. Podés darlos de alta rápidamente.</span>`;
-                activosSinSocio.forEach(nombre => {
+                activosSinSocio.forEach(item => {
+                    let nombre = item.nombre;
+                    let plan = item.plan;
                     let nombreEscapado = escaparParaJS(nombre);
+                    let badgePlan = ` <span style="background:#e8f4fd; color:#2471a3; border-radius:4px; padding:1px 5px; font-size:0.7rem; font-weight:700;">💳 ${plan}</span>`;
                     let botonesDev = esDesarrollador() ? `<button class="btn-micro btn-micro-blue" style="margin-left:4px;" onclick="abrirSelectorSocioMP('${nombreEscapado}')">Le paga a socio</button><button class="btn-micro btn-micro-red" style="margin-left:4px;" onclick="ignorarSuscriptorMP('${nombreEscapado}')">Ignorar</button>` : '';
-                    html += `<div style="padding:6px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; gap:6px;"><span>🆕 <b>${escaparHTMLTexto(nombre)}</b> tiene suscripción activa en MP pero no es socio.</span><span style="white-space:nowrap;"><button class="btn-micro btn-micro-green" onclick="altaRapidaDesdeMP('${nombreEscapado}')">Dar de Alta</button>${botonesDev}</span></div>`;
+                    html += `<div style="padding:6px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; gap:6px;"><span>🆕 <b>${escaparHTMLTexto(nombre)}</b>${badgePlan} tiene suscripción activa en MP pero no es socio.</span><span style="white-space:nowrap;"><button class="btn-micro btn-micro-green" onclick="altaRapidaDesdeMP('${nombreEscapado}', '${plan}')">Dar de Alta</button>${botonesDev}</span></div>`;
                 });
                 html += `</div>`;
+            }
+
+            let idsPlan = Object.keys(planesDetectadosMP);
+            if(idsPlan.length > 0) {
+                let c = { mensual: 0, semestral: 0, anual: 0 };
+                idsPlan.forEach(id => { let p = planesDetectadosMP[id]; if(c[p] !== undefined) c[p]++; });
+                html += `<div style="margin-top:10px; padding:6px; background:#e8f4fd; border:1px solid #aed6f1; border-radius:6px; font-size:0.78rem; color:#2471a3;">📋 Planes MP detectados y guardados en ficha: <b>${c.mensual} mensual</b> · <b>${c.semestral} semestral</b> · <b>${c.anual} anual</b> (${idsPlan.length} socios)</div>`;
             }
 
             if(alertasCount === 0 && activosSinSocio.length === 0) {
@@ -1949,6 +2070,7 @@
             if(!Array.isArray(datosContables["_MP_IGNORADOS_"])) datosContables["_MP_IGNORADOS_"] = [];
             if(typeof datosContables["_MP_VINCULADOS_"] !== 'object' || datosContables["_MP_VINCULADOS_"] === null || Array.isArray(datosContables["_MP_VINCULADOS_"])) datosContables["_MP_VINCULADOS_"] = {};
             if(!Array.isArray(datosContables["_MP_REPORTES_"])) datosContables["_MP_REPORTES_"] = [];
+            if(typeof datosContables["_MP_PLANES_"] !== 'object' || datosContables["_MP_PLANES_"] === null || Array.isArray(datosContables["_MP_PLANES_"])) datosContables["_MP_PLANES_"] = {};
         }
 
         function bloqueHistorialHTML() {
@@ -2026,11 +2148,12 @@
             analizarTextoCSV(ultimoCsvTextoMP, ultimoNombreArchivoMP, false);
         }
 
-        function altaRapidaDesdeMP(nombre) {
+        function altaRapidaDesdeMP(nombre, plan) {
             document.getElementById('modalAuditoriaMP').classList.remove('open');
             abrirModalFicha(null);
             document.getElementById('nsNombre').value = nombre;
             document.getElementById('nsPago').value = 'MP';
+            if(plan === 'mensual' || plan === 'semestral' || plan === 'anual') document.getElementById('nsPlanMP').value = plan;
             togglePlanMPConfig();
         }
     </script>
