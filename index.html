@@ -121,6 +121,9 @@
                         <div class="top-nav-icon" id="topIconCD" style="display:none;" onclick="seleccionarVista('gestion_cd', null, this)" title="Gestión Comisión Directiva">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         </div>
+                        <div class="top-nav-icon" onclick="seleccionarVista('agenda_contactos', null, this)" title="Agenda de contactos">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4z"></path><path d="M4 4v16"></path><path d="M20 8h2"></path><path d="M20 12h2"></path><path d="M20 16h2"></path><circle cx="11" cy="10" r="2"></circle><path d="M8 15c.5-1.5 1.7-2.2 3-2.2s2.5.7 3 2.2"></path></svg>
+                        </div>
                     </div>
                     <div>
                         <h2 id="titulo-vista">Tabla de Socios General</h2>
@@ -619,6 +622,7 @@
             else if(v === 'inactivos') { document.getElementById('titulo-vista').innerText = "Socios Inactivos"; renderizarTodo(); }
             else if(v === 'socio_individual') { let s = sociosData.find(x => x.id === param); document.getElementById('titulo-vista').innerText = "Socio #" + param + " - " + (s ? s.nombre : ''); renderizarTodo(); }
             else if(v === 'registro') { document.getElementById('titulo-vista').innerText = "Registro Actividad"; renderizarRegistroActividad(); }
+            else if(v === 'agenda_contactos') { document.getElementById('titulo-vista').innerText = "Agenda de contactos"; renderAgendaContactos(); }
             else if(v === 'alquileres') { document.getElementById('titulo-vista').innerText = "Gestión Alquileres"; document.getElementById('socios-container').innerHTML = '<div id="calendar-container" style="background:#fff; padding:20px; border-radius:8px; border:1px solid var(--borde); box-shadow:0 2px 5px rgba(0,0,0,0.02);"></div>'; renderCalendar(); }
             else if(v === 'buffet') { document.getElementById('titulo-vista').innerText = "Cálculo Buffet"; renderBuffetMain(); }
         }
@@ -714,6 +718,146 @@
             container.innerHTML = html;
         }
 
+        // ==========================================
+        // MÓDULO AGENDA DE CONTACTOS
+        // ==========================================
+        let agendaTabActual = 'oficios';
+        const AGENDA_CONF = {
+            oficios: {
+                titulo: 'Oficios',
+                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'RUBRO', 'FACTURA', ''],
+                fields: [
+                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
+                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
+                    { k: 'rubro', type: 'text', placeholder: 'Ej: Plomero' },
+                    { k: 'factura', type: 'select', opts: ['Sí', 'No', 'Averiguar'] }
+                ]
+            },
+            artisticos: {
+                titulo: 'Contactos artísticos',
+                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'QUÉ HACE', 'AD HONOREM O CACHÉ', ''],
+                fields: [
+                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
+                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
+                    { k: 'queHace', type: 'text', placeholder: 'Ej: Músico, bailarín...' },
+                    { k: 'honorario', type: 'select', opts: ['Ad honorem', 'Caché'] }
+                ]
+            },
+            institucionales: {
+                titulo: 'Contactos institucionales',
+                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'INSTITUCIÓN', 'VÍNCULO', ''],
+                fields: [
+                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
+                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
+                    { k: 'institucion', type: 'text', placeholder: 'Ej: Municipalidad...' },
+                    { k: 'vinculo', type: 'select', opts: ['Vínculo cercano', 'Referente'] }
+                ]
+            }
+        };
+
+        function datosAgenda() {
+            if(!datosContables) datosContables = inicializarDatosContables();
+            asegurarAgendaEn(datosContables);
+            return datosContables["_AGENDA_"];
+        }
+
+        function persistirAgendaLocal() {
+            marcarCambiosContables();
+            if(datosContables) localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+        }
+
+        function renderAgendaContactos() {
+            document.getElementById('header-tabla-normal').style.display = 'none';
+            let mc = document.getElementById('mapa-wrapper'); if(mc) mc.style.display = 'none';
+            document.getElementById('socios-container').style.display = 'block';
+            datosAgenda();
+            const tabs = Object.keys(AGENDA_CONF).map(k => `<button id="tab-btn-agenda-${k}" class="tab-btn${agendaTabActual === k ? ' active' : ''}" onclick="switchAgendaTab('${k}')">${k === 'oficios' ? '🛠️ Oficios' : (k === 'artisticos' ? '🎭 Contactos artísticos' : '🏛️ Contactos institucionales')}</button>`).join('');
+            const contents = Object.keys(AGENDA_CONF).map(k => `<div id="tab-content-agenda-${k}" class="tab-content${agendaTabActual === k ? ' active' : ''}"></div>`).join('');
+            document.getElementById('socios-container').innerHTML = `<div class="tabs-container">${tabs}</div>${contents}<div class="barra-guardar-contable${hayCambiosContables ? ' con-aviso' : ''}"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
+            Object.keys(AGENDA_CONF).forEach(k => renderAgendaSeccion(k));
+        }
+
+        function switchAgendaTab(tabName) {
+            agendaTabActual = tabName;
+            Object.keys(AGENDA_CONF).forEach(k => {
+                let b = document.getElementById('tab-btn-agenda-' + k); if(b) b.classList.toggle('active', k === tabName);
+                let c = document.getElementById('tab-content-agenda-' + k); if(c) c.classList.toggle('active', k === tabName);
+            });
+        }
+
+        function renderAgendaSeccion(seccion) {
+            let root = document.getElementById('tab-content-agenda-' + seccion);
+            if(!root) return;
+            const conf = AGENDA_CONF[seccion];
+            const items = datosAgenda()[seccion] || [];
+            const pref = 'ag-' + seccion + '-';
+            let html = `<div class="contable-container" style="margin-bottom:16px;"><div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">`;
+            conf.fields.forEach(f => {
+                html += `<label style="display:flex; flex-direction:column; gap:4px; font-size:.7rem; font-weight:700; color:var(--primary); min-width:${f.type === 'select' ? '140px' : '160px'};">${f.label || f.placeholder.toUpperCase()}`;
+                if(f.type === 'select') {
+                    html += `<select id="${pref}${f.k}" class="form-input" style="padding:8px; font-size:.85rem;">${f.opts.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
+                } else {
+                    html += `<input type="${f.type}" id="${pref}${f.k}" class="form-input" placeholder="${f.placeholder}" style="padding:8px; font-size:.85rem;">`;
+                }
+                html += `</label>`;
+            });
+            html += `<button class="btn-nuevo-socio" style="margin:0; white-space:nowrap;" onclick="agregarContactoAgenda('${seccion}')">➕ Agregar</button></div></div>`;
+            html += `<div class="contable-container"><table class="tabla-contable" style="font-size:.85rem;"><thead><tr>${conf.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+            if(items.length === 0) {
+                html += `<tr><td colspan="${conf.headers.length}" style="text-align:center; padding:20px; color:#7f8c8d;">Sin contactos en ${conf.titulo}. Agregá el primero arriba.</td></tr>`;
+            } else {
+                items.forEach((c, idx) => {
+                    html += `<tr>`;
+                    conf.fields.forEach(f => {
+                        const val = escaparHTMLTexto(c[f.k] || '');
+                        if(f.type === 'select') {
+                            html += `<td><select onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="font-size:.8rem; padding:4px;">${f.opts.map(o => `<option value="${o}"${(c[f.k] || f.opts[0]) === o ? ' selected' : ''}>${o}</option>`).join('')}</select></td>`;
+                        } else if(f.k === 'telefono') {
+                            html += `<td>${val ? `<a href="tel:${val.replace(/[^0-9+]/g, '')}" style="color:var(--accent); font-weight:600;">${val}</a>` : '—'} <input type="tel" value="${val}" onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="width:110px; font-size:.75rem; padding:2px; margin-left:4px;"></td>`;
+                        } else {
+                            html += `<td><input type="text" value="${val}" onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="width:${f.k === 'nombre' ? '180px' : '130px'}; font-size:.8rem; padding:3px;"></td>`;
+                        }
+                    });
+                    html += `<td><button class="btn-micro btn-micro-red" title="Eliminar" onclick="eliminarContactoAgenda('${seccion}', '${c.id}')">🗑️</button></td></tr>`;
+                });
+            }
+            html += `</tbody></table></div>`;
+            root.innerHTML = html;
+        }
+
+        function agregarContactoAgenda(seccion) {
+            const conf = AGENDA_CONF[seccion];
+            const pref = 'ag-' + seccion + '-';
+            let nuevo = { id: 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) };
+            conf.fields.forEach(f => {
+                let el = document.getElementById(pref + f.k);
+                nuevo[f.k] = el ? el.value : (f.type === 'select' ? f.opts[0] : '');
+            });
+            if(!String(nuevo.nombre || '').trim()) { alert('Ingresá el Nombre y apellido.'); return; }
+            nuevo.nombre = nuevo.nombre.trim();
+            datosAgenda()[seccion].push(nuevo);
+            persistirAgendaLocal();
+            renderAgendaSeccion(seccion);
+        }
+
+        function actualizarContactoAgenda(seccion, id, campo, valor) {
+            const c = (datosAgenda()[seccion] || []).find(x => x.id === id);
+            if(!c) return;
+            c[campo] = valor;
+            persistirAgendaLocal();
+            if(campo === 'telefono') renderAgendaSeccion(seccion);
+        }
+
+        function eliminarContactoAgenda(seccion, id) {
+            const items = datosAgenda()[seccion] || [];
+            const c = items.find(x => x.id === id);
+            if(!c) return;
+            if(!confirm(`¿Eliminar el contacto "${c.nombre}" de la agenda?`)) return;
+            datosAgenda()[seccion] = items.filter(x => x.id !== id);
+            persistirAgendaLocal();
+            renderAgendaSeccion(seccion);
+        }
+
         async function migrarYogaSilla() {
             const VIEJO = "YOGA SILLA";
             const NUEVO = "YOGA";
@@ -792,7 +936,7 @@
                 });
                 await migrarYogaSilla();
                 st.innerText = "Conectado ☁️✅"; st.style.color = "var(--verde)"; actualizarBadgeNotificaciones();
-                if(tipoVista === 'analisis_contable') renderTabsContables(); else if(tipoVista === 'mapa') abrirMapa(null); else if(tipoVista === 'alquileres') renderCalendar(); else if(tipoVista === 'buffet') renderBuffetMain(); else if(tipoVista === 'registro') renderizarRegistroActividad(); else renderizarTodo();
+                if(tipoVista === 'analisis_contable') renderTabsContables(); else if(tipoVista === 'mapa') abrirMapa(null); else if(tipoVista === 'alquileres') renderCalendar(); else if(tipoVista === 'buffet') renderBuffetMain(); else if(tipoVista === 'registro') renderizarRegistroActividad(); else if(tipoVista === 'agenda_contactos') renderAgendaContactos(); else renderizarTodo();
             } catch(e) { st.innerText = "Error de red ❌"; st.style.color = "var(--rojo)"; logDebug("ERROR FETCH: " + e.message); }
         }
 
@@ -1365,6 +1509,7 @@
             if(!data["_MP_VINCULADOS_"]) data["_MP_VINCULADOS_"] = {};
             if(!data["_MP_REPORTES_"]) data["_MP_REPORTES_"] = [];
             if(!data["_MP_PLANES_"] || typeof data["_MP_PLANES_"] !== 'object' || data["_MP_PLANES_"] === null || Array.isArray(data["_MP_PLANES_"])) data["_MP_PLANES_"] = {};
+            asegurarAgendaEn(data);
             return data;
         }
         function inicializarDatosEgresos() {
@@ -1639,7 +1784,7 @@
         function guardarBuffetExtra() { let id = document.getElementById('beEvId').value, d = document.getElementById('beDesc').value, m = parseFloat(document.getElementById('beMonto').value); if(!d || m <= 0) return; let ev = datosContables["_BUFFET_"].find(e => e.id === id); ev.extras.push({ id: 'ex_' + new Date().getTime(), desc: d, monto: m, tipo: document.getElementById('beTipo').value }); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); document.getElementById('modalBuffetExtra').classList.remove('open'); renderDetalleBuffet(id); }
         function eliminarBuffetExtra(evId, exId) { let ev = datosContables["_BUFFET_"].find(e => e.id === evId); ev.extras = ev.extras.filter(x => x.id !== exId); localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); renderDetalleBuffet(id); }
 
-        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); /* Todos los roles pueden registrar/quitar pagos manualmente, incluso sobre socios MP */ isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
+        document.addEventListener('mousedown', e => { if(tipoVista === 'gestion_cd' || tipoVista === 'analisis_contable' || tipoVista === 'registro' || tipoVista === 'mapa' || tipoVista === 'alquileres' || tipoVista === 'buffet' || tipoVista === 'agenda_contactos') return; let b = e.target.closest('.mes-interact'); if(!b) return; e.preventDefault(); let sId = parseInt(b.dataset.socioId), s = sociosData.find(x => x.id === sId); /* Todos los roles pueden registrar/quitar pagos manualmente, incluso sobre socios MP */ isDragging = true; dragSocioId = sId; dragMeses.clear(); dragMeses.add(b.dataset.mes); dragAction = b.classList.contains('pago') ? 'quitar' : 'pagar'; b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseover', e => { if(!isDragging) return; let b = e.target.closest('.mes-interact'); if(!b || parseInt(b.dataset.socioId) !== dragSocioId) return; dragMeses.add(b.dataset.mes); b.classList.toggle('pago', dragAction === 'pagar'); });
         document.addEventListener('mouseup', () => { if(!isDragging) return; isDragging = false; if(dragMeses.size > 0 && dragSocioId) { let s = sociosData.find(x => x.id === dragSocioId); document.getElementById('modalTitle').innerText = dragAction === 'pagar' ? "Registrar Pago" : "Quitar Pago"; let cB = document.getElementById('modalConfirmBtn'); document.getElementById('modalBtnEfectivo').style.display = 'none'; document.getElementById('modalBtnTransfC').style.display = 'none'; document.getElementById('modalBtnTransfMP').style.display = 'none'; document.getElementById('modalBtnSuscMP').style.display = 'none'; document.getElementById('modalBtnPagoManualMP').style.display = 'none'; if(dragAction === 'pagar') { cB.style.display = 'none'; document.getElementById('modalBtnEfectivo').style.display = 'inline-block'; document.getElementById('modalBtnTransfC').style.display = 'inline-block'; document.getElementById('modalBtnTransfMP').style.display = 'inline-block'; document.getElementById('modalBtnSuscMP').style.display = 'inline-block'; document.getElementById('modalBtnPagoManualMP').style.display = 'inline-block'; document.getElementById('modalText').innerText = "¿Con qué método se realizó este pago?"; window.confirmarPagoMetodo = async(m) => { if(m === 'SUSCRIPCION_MP') { s.formaPago = 'MP'; for(let i = indiceMesActual; i < mesesLista.length; i++) { s.pagos[mesesLista[i]] = "x"; } } else if(m === 'PAGO_MANUAL_MP') { Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } else { s.formaPago = m; Array.from(dragMeses).forEach(ms => s.pagos[ms] = "x"); } cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } else { document.getElementById('modalText').innerText = "¿Quitar pago?"; cB.style.display = 'inline-block'; accionPendienteModal = async() => { Array.from(dragMeses).forEach(ms => s.pagos[ms] = ""); cerrarModal(); renderizarTodo(); await guardarSocioEnNube(s, "actualizar"); }; } document.getElementById('customModal').classList.add('open'); } });
         function cerrarModal() { document.getElementById('customModal').classList.remove('open'); accionPendienteModal = null; }
@@ -2149,6 +2294,16 @@
             if(typeof datosContables["_MP_VINCULADOS_"] !== 'object' || datosContables["_MP_VINCULADOS_"] === null || Array.isArray(datosContables["_MP_VINCULADOS_"])) datosContables["_MP_VINCULADOS_"] = {};
             if(!Array.isArray(datosContables["_MP_REPORTES_"])) datosContables["_MP_REPORTES_"] = [];
             if(typeof datosContables["_MP_PLANES_"] !== 'object' || datosContables["_MP_PLANES_"] === null || Array.isArray(datosContables["_MP_PLANES_"])) datosContables["_MP_PLANES_"] = {};
+            asegurarAgendaEn(datosContables);
+        }
+
+        function asegurarAgendaEn(data) {
+            if(!data || typeof data !== 'object' || Array.isArray(data)) return;
+            if(!data["_AGENDA_"] || typeof data["_AGENDA_"] !== 'object' || data["_AGENDA_"] === null || Array.isArray(data["_AGENDA_"])) data["_AGENDA_"] = {};
+            const a = data["_AGENDA_"];
+            if(!Array.isArray(a.oficios)) a.oficios = [];
+            if(!Array.isArray(a.artisticos)) a.artisticos = [];
+            if(!Array.isArray(a.institucionales)) a.institucionales = [];
         }
 
         function bloqueHistorialHTML() {
