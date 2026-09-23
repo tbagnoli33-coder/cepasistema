@@ -30,6 +30,33 @@
         .th-orden-contable:hover { color: var(--accent); }
         .th-orden-contable .flecha-orden { font-size: .65rem; opacity: .55; margin-left: 3px; }
         .th-orden-contable.orden-activo .flecha-orden { opacity: 1; color: var(--accent); }
+        .agenda-grid { display: grid; gap: 12px; align-content: start; }
+        .agenda-grid-oficios { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .agenda-grid-densa { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+        .agenda-card { background: #fff; border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+        .agenda-card-oficio { min-height: calc(100vh - 240px); max-height: calc(100vh - 240px); }
+        .agenda-card-densa { min-height: calc((100vh - 260px) / 3); max-height: calc((100vh - 260px) / 3); }
+        .agenda-card-head { padding: 10px 12px; font-weight: 800; font-size: .78rem; letter-spacing: .3px; text-transform: uppercase; color: #fff; background: var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
+        .agenda-card-head .agenda-count { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 8px; font-size: .65rem; }
+        .agenda-card-oficio .agenda-card-head { background: #2c3e50; }
+        .agenda-card-body { padding: 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .agenda-contacto { border: 1px solid #eceff3; border-radius: 8px; padding: 7px 8px; background: #f8fafc; font-size: .72rem; line-height: 1.3; position: relative; }
+        .agenda-contacto:hover { border-color: var(--accent); background: #f0f7fc; }
+        .agenda-contacto .ac-nombre { font-weight: 700; color: var(--primary); font-size: .75rem; padding-right: 18px; word-break: break-word; }
+        .agenda-contacto .ac-meta { color: #666; margin-top: 2px; word-break: break-word; }
+        .agenda-contacto a.ac-tel { color: var(--accent); font-weight: 700; text-decoration: none; }
+        .agenda-badge { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: 20px; font-size: .62rem; font-weight: 700; background: #eaf2fd; color: #2471a3; }
+        .agenda-badge.warn { background: #fef5e7; color: #b9770e; }
+        .agenda-badge.ok { background: #e8f8f5; color: #1e8449; }
+        .agenda-badge.muted { background: #f0f0f0; color: #666; }
+        .agenda-del { position: absolute; top: 4px; right: 4px; border: none; background: transparent; color: #c0392b; cursor: pointer; font-size: .75rem; line-height: 1; padding: 2px; opacity: .55; }
+        .agenda-del:hover { opacity: 1; }
+        .agenda-vacio { color: #95a5a6; font-size: .68rem; text-align: center; padding: 12px 6px; font-style: italic; }
+        .btn-agenda-add { position: fixed; bottom: 92px; left: 24px; z-index: 1500; width: 52px; height: 52px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 1.7rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(52,152,219,0.45); display: flex; align-items: center; justify-content: center; transition: .2s; }
+        .btn-agenda-add:hover { background: #2980b9; transform: translateY(-2px); }
+        .agenda-wrap { padding-bottom: 10px; }
+        @media (max-width: 1200px) { .agenda-grid-oficios { grid-template-columns: repeat(3, minmax(0, 1fr)); } .agenda-grid-densa { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        @media (max-width: 768px) { .agenda-grid-oficios, .agenda-grid-densa { grid-template-columns: repeat(2, minmax(0, 1fr)); } .agenda-card-oficio, .agenda-card-densa { min-height: 220px; max-height: 320px; } }
         #calendar-container { height: calc(100vh - 120px) !important; display: flex !important; flex-direction: column !important; }
         .notas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
         .nota-card { background: #2c3e50; color: white; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top:4px solid var(--accent); }
@@ -459,6 +486,17 @@
         </div>
     </div>
 
+    <div id="modalAgendaContacto" class="modal-overlay" onclick="cerrarModalAgendaContacto(event)">
+        <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 480px;">
+            <h3 id="agendaModalTitle" style="color:var(--primary); margin-bottom:15px;">➕ Nuevo contacto</h3>
+            <div id="agendaModalFields"></div>
+            <div class="modal-buttons" style="margin-top:20px;">
+                <button class="modal-btn btn-cancelar" onclick="cerrarModalAgendaContacto(null)">Cancelar</button>
+                <button class="modal-btn btn-confirmar" style="background:#8e44ad;" onclick="guardarModalAgendaContacto()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALES BUFFET -->
     <div id="modalBuffetInsumo" class="modal-overlay" onclick="document.getElementById('modalBuffetInsumo').classList.remove('open')">
         <div class="modal-box form-modal" onclick="event.stopPropagation()">
@@ -722,35 +760,38 @@
         // MÓDULO AGENDA DE CONTACTOS
         // ==========================================
         let agendaTabActual = 'oficios';
+        let agendaModalSeccion = null;
+        let agendaModalEditId = null;
+        const OFICIOS_BASE = ['Albañilería', 'Plomería', 'Electricidad', 'Jardinería', 'Techista', 'Herrero'];
         const AGENDA_CONF = {
             oficios: {
                 titulo: 'Oficios',
-                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'RUBRO', 'FACTURA', ''],
+                btn: '🛠️ Oficios',
                 fields: [
-                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
-                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
-                    { k: 'rubro', type: 'text', placeholder: 'Ej: Plomero' },
-                    { k: 'factura', type: 'select', opts: ['Sí', 'No', 'Averiguar'] }
+                    { k: 'nombre', type: 'text', label: 'NOMBRE Y APELLIDO', placeholder: 'Nombre y apellido', required: true },
+                    { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
+                    { k: 'rubro', type: 'text', label: 'RUBRO', placeholder: 'Ej: Plomería', list: 'agendaRubrosList' },
+                    { k: 'factura', type: 'select', label: 'FACTURA', opts: ['Sí', 'No', 'Averiguar'] }
                 ]
             },
             artisticos: {
                 titulo: 'Contactos artísticos',
-                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'QUÉ HACE', 'AD HONOREM O CACHÉ', ''],
+                btn: '🎭 Contactos artísticos',
                 fields: [
-                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
-                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
-                    { k: 'queHace', type: 'text', placeholder: 'Ej: Músico, bailarín...' },
-                    { k: 'honorario', type: 'select', opts: ['Ad honorem', 'Caché'] }
+                    { k: 'nombre', type: 'text', label: 'NOMBRE Y APELLIDO', placeholder: 'Nombre y apellido', required: true },
+                    { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
+                    { k: 'queHace', type: 'text', label: 'QUÉ HACE', placeholder: 'Ej: Músico, bailarín...' },
+                    { k: 'honorario', type: 'select', label: 'AD HONOREM O CACHÉ', opts: ['Ad honorem', 'Caché'] }
                 ]
             },
             institucionales: {
                 titulo: 'Contactos institucionales',
-                headers: ['NOMBRE Y APELLIDO', 'TELÉFONO', 'INSTITUCIÓN', 'VÍNCULO', ''],
+                btn: '🏛️ Contactos institucionales',
                 fields: [
-                    { k: 'nombre', type: 'text', placeholder: 'Nombre y apellido' },
-                    { k: 'telefono', type: 'tel', placeholder: 'Teléfono' },
-                    { k: 'institucion', type: 'text', placeholder: 'Ej: Municipalidad...' },
-                    { k: 'vinculo', type: 'select', opts: ['Vínculo cercano', 'Referente'] }
+                    { k: 'nombre', type: 'text', label: 'NOMBRE Y APELLIDO', placeholder: 'Nombre y apellido', required: true },
+                    { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
+                    { k: 'institucion', type: 'text', label: 'INSTITUCIÓN', placeholder: 'Ej: Municipalidad...' },
+                    { k: 'vinculo', type: 'select', label: 'VÍNCULO', opts: ['Vínculo cercano', 'Referente'] }
                 ]
             }
         };
@@ -766,14 +807,23 @@
             if(datosContables) localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
         }
 
+        function rubrosOficiosAgenda() {
+            const extras = [];
+            (datosAgenda().oficios || []).forEach(c => {
+                const r = String(c.rubro || '').trim();
+                if(r && !OFICIOS_BASE.includes(r) && !extras.includes(r)) extras.push(r);
+            });
+            return OFICIOS_BASE.concat(extras);
+        }
+
         function renderAgendaContactos() {
             document.getElementById('header-tabla-normal').style.display = 'none';
             let mc = document.getElementById('mapa-wrapper'); if(mc) mc.style.display = 'none';
             document.getElementById('socios-container').style.display = 'block';
             datosAgenda();
-            const tabs = Object.keys(AGENDA_CONF).map(k => `<button id="tab-btn-agenda-${k}" class="tab-btn${agendaTabActual === k ? ' active' : ''}" onclick="switchAgendaTab('${k}')">${k === 'oficios' ? '🛠️ Oficios' : (k === 'artisticos' ? '🎭 Contactos artísticos' : '🏛️ Contactos institucionales')}</button>`).join('');
+            const tabs = Object.keys(AGENDA_CONF).map(k => `<button id="tab-btn-agenda-${k}" class="tab-btn${agendaTabActual === k ? ' active' : ''}" onclick="switchAgendaTab('${k}')">${AGENDA_CONF[k].btn}</button>`).join('');
             const contents = Object.keys(AGENDA_CONF).map(k => `<div id="tab-content-agenda-${k}" class="tab-content${agendaTabActual === k ? ' active' : ''}"></div>`).join('');
-            document.getElementById('socios-container').innerHTML = `<div class="tabs-container">${tabs}</div>${contents}<div class="barra-guardar-contable${hayCambiosContables ? ' con-aviso' : ''}"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
+            document.getElementById('socios-container').innerHTML = `<div class="tabs-container">${tabs}</div><div class="agenda-wrap">${contents}</div><button type="button" class="btn-agenda-add" id="btnAgendaAdd" onclick="abrirModalAgendaContacto(agendaTabActual)" title="Agregar contacto">+</button><div class="barra-guardar-contable${hayCambiosContables ? ' con-aviso' : ''}"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
             Object.keys(AGENDA_CONF).forEach(k => renderAgendaSeccion(k));
         }
 
@@ -785,67 +835,163 @@
             });
         }
 
+        function badgeFactura(v) {
+            const t = String(v || 'Averiguar');
+            const cls = t === 'Sí' ? 'ok' : (t === 'No' ? 'muted' : 'warn');
+            return `<span class="agenda-badge ${cls}">Factura: ${escaparHTMLTexto(t)}</span>`;
+        }
+
+        function badgeHonorario(v) {
+            const t = String(v || 'Ad honorem');
+            const cls = t === 'Caché' ? 'ok' : 'muted';
+            return `<span class="agenda-badge ${cls}">${escaparHTMLTexto(t)}</span>`;
+        }
+
+        function badgeVinculo(v) {
+            const t = String(v || 'Vínculo cercano');
+            const cls = t === 'Referente' ? 'ok' : 'muted';
+            return `<span class="agenda-badge ${cls}">${escaparHTMLTexto(t)}</span>`;
+        }
+
+        function telHTML(tel) {
+            const t = String(tel || '').trim();
+            if(!t) return `<span class="ac-meta">Sin teléfono</span>`;
+            const href = t.replace(/[^0-9+]/g, '');
+            return `<a class="ac-tel" href="tel:${href}" onclick="event.stopPropagation()">📱 ${escaparHTMLTexto(t)}</a>`;
+        }
+
+        function contactoOficioHTML(c) {
+            return `<div class="agenda-contacto" onclick="abrirModalAgendaContacto('oficios','${c.id}')" title="Editar">
+                <button type="button" class="agenda-del" title="Eliminar" onclick="event.stopPropagation(); eliminarContactoAgenda('oficios','${c.id}')">✕</button>
+                <div class="ac-nombre">${escaparHTMLTexto(c.nombre || 'Sin nombre')}</div>
+                <div class="ac-meta">${telHTML(c.telefono)}</div>
+                ${badgeFactura(c.factura)}
+            </div>`;
+        }
+
+        function contactoArtisticoHTML(c) {
+            return `<div class="agenda-contacto" onclick="abrirModalAgendaContacto('artisticos','${c.id}')" title="Editar">
+                <button type="button" class="agenda-del" title="Eliminar" onclick="event.stopPropagation(); eliminarContactoAgenda('artisticos','${c.id}')">✕</button>
+                <div class="ac-nombre">${escaparHTMLTexto(c.nombre || 'Sin nombre')}</div>
+                <div class="ac-meta">${telHTML(c.telefono)}</div>
+                <div class="ac-meta">${escaparHTMLTexto(c.queHace || '—')}</div>
+                ${badgeHonorario(c.honorario)}
+            </div>`;
+        }
+
+        function contactoInstitucionalHTML(c) {
+            return `<div class="agenda-contacto" onclick="abrirModalAgendaContacto('institucionales','${c.id}')" title="Editar">
+                <button type="button" class="agenda-del" title="Eliminar" onclick="event.stopPropagation(); eliminarContactoAgenda('institucionales','${c.id}')">✕</button>
+                <div class="ac-nombre">${escaparHTMLTexto(c.nombre || 'Sin nombre')}</div>
+                <div class="ac-meta">${telHTML(c.telefono)}</div>
+                <div class="ac-meta">${escaparHTMLTexto(c.institucion || '—')}</div>
+                ${badgeVinculo(c.vinculo)}
+            </div>`;
+        }
+
         function renderAgendaSeccion(seccion) {
             let root = document.getElementById('tab-content-agenda-' + seccion);
             if(!root) return;
-            const conf = AGENDA_CONF[seccion];
             const items = datosAgenda()[seccion] || [];
-            const pref = 'ag-' + seccion + '-';
-            let html = `<div class="contable-container" style="margin-bottom:16px;"><div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">`;
-            conf.fields.forEach(f => {
-                html += `<label style="display:flex; flex-direction:column; gap:4px; font-size:.7rem; font-weight:700; color:var(--primary); min-width:${f.type === 'select' ? '140px' : '160px'};">${f.label || f.placeholder.toUpperCase()}`;
-                if(f.type === 'select') {
-                    html += `<select id="${pref}${f.k}" class="form-input" style="padding:8px; font-size:.85rem;">${f.opts.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
-                } else {
-                    html += `<input type="${f.type}" id="${pref}${f.k}" class="form-input" placeholder="${f.placeholder}" style="padding:8px; font-size:.85rem;">`;
-                }
-                html += `</label>`;
-            });
-            html += `<button class="btn-nuevo-socio" style="margin:0; white-space:nowrap;" onclick="agregarContactoAgenda('${seccion}')">➕ Agregar</button></div></div>`;
-            html += `<div class="contable-container"><table class="tabla-contable" style="font-size:.85rem;"><thead><tr>${conf.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
-            if(items.length === 0) {
-                html += `<tr><td colspan="${conf.headers.length}" style="text-align:center; padding:20px; color:#7f8c8d;">Sin contactos en ${conf.titulo}. Agregá el primero arriba.</td></tr>`;
-            } else {
-                items.forEach((c, idx) => {
-                    html += `<tr>`;
-                    conf.fields.forEach(f => {
-                        const val = escaparHTMLTexto(c[f.k] || '');
-                        if(f.type === 'select') {
-                            html += `<td><select onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="font-size:.8rem; padding:4px;">${f.opts.map(o => `<option value="${o}"${(c[f.k] || f.opts[0]) === o ? ' selected' : ''}>${o}</option>`).join('')}</select></td>`;
-                        } else if(f.k === 'telefono') {
-                            html += `<td>${val ? `<a href="tel:${val.replace(/[^0-9+]/g, '')}" style="color:var(--accent); font-weight:600;">${val}</a>` : '—'} <input type="tel" value="${val}" onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="width:110px; font-size:.75rem; padding:2px; margin-left:4px;"></td>`;
-                        } else {
-                            html += `<td><input type="text" value="${val}" onchange="actualizarContactoAgenda('${seccion}', '${c.id}', '${f.k}', this.value)" style="width:${f.k === 'nombre' ? '180px' : '130px'}; font-size:.8rem; padding:3px;"></td>`;
-                        }
-                    });
-                    html += `<td><button class="btn-micro btn-micro-red" title="Eliminar" onclick="eliminarContactoAgenda('${seccion}', '${c.id}')">🗑️</button></td></tr>`;
+            let html = '';
+            if(seccion === 'oficios') {
+                html += `<div class="agenda-grid agenda-grid-oficios">`;
+                rubrosOficiosAgenda().forEach(rubro => {
+                    const exactos = items.filter(c => String(c.rubro || '').trim() === rubro);
+                    html += `<div class="agenda-card agenda-card-oficio">
+                        <div class="agenda-card-head"><span>${escaparHTMLTexto(rubro)}</span><span class="agenda-count">${exactos.length}</span></div>
+                        <div class="agenda-card-body">${exactos.length ? exactos.map(contactoOficioHTML).join('') : '<div class="agenda-vacio">Sin contactos. Tocá + para sumar.</div>'}</div>
+                    </div>`;
                 });
+                html += `</div>`;
+            } else if(seccion === 'artisticos') {
+                html += `<div class="agenda-grid agenda-grid-densa">`;
+                if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin contactos artísticos. Tocá + para sumar.</div>`;
+                else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#8e44ad;"><span>🎭 Arte</span></div><div class="agenda-card-body">${contactoArtisticoHTML(c)}</div></div>`; });
+                html += `</div>`;
+            } else {
+                html += `<div class="agenda-grid agenda-grid-densa">`;
+                if(!items.length) html += `<div class="agenda-vacio" style="grid-column:1/-1; padding:30px;">Sin contactos institucionales. Tocá + para sumar.</div>`;
+                else items.forEach(c => { html += `<div class="agenda-card agenda-card-densa"><div class="agenda-card-head" style="background:#1a5276;"><span>🏛️ Inst.</span></div><div class="agenda-card-body">${contactoInstitucionalHTML(c)}</div></div>`; });
+                html += `</div>`;
             }
-            html += `</tbody></table></div>`;
             root.innerHTML = html;
+            if(seccion === 'oficios') {
+                const dl = document.getElementById('agendaRubrosList');
+                if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
+            }
         }
 
-        function agregarContactoAgenda(seccion) {
+        function agendaFieldsHTML(seccion, valores) {
             const conf = AGENDA_CONF[seccion];
-            const pref = 'ag-' + seccion + '-';
-            let nuevo = { id: 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) };
+            const v = valores || {};
+            let html = '';
             conf.fields.forEach(f => {
-                let el = document.getElementById(pref + f.k);
-                nuevo[f.k] = el ? el.value : (f.type === 'select' ? f.opts[0] : '');
+                const val = escaparHTMLTexto(v[f.k] != null ? v[f.k] : (f.type === 'select' ? f.opts[0] : ''));
+                html += `<div class="form-group" style="margin-bottom:12px;"><label class="form-label">${f.label}${f.required ? ' *' : ''}</label>`;
+                if(f.type === 'select') {
+                    html += `<select id="agModal_${f.k}" class="form-input">${f.opts.map(o => `<option value="${escaparHTMLTexto(o)}"${v[f.k] === o || (v[f.k] == null && o === f.opts[0]) ? ' selected' : ''}>${escaparHTMLTexto(o)}</option>`).join('')}</select>`;
+                } else {
+                    html += `<input type="${f.type}" id="agModal_${f.k}" class="form-input" placeholder="${escaparHTMLTexto(f.placeholder || '')}" value="${val}"${f.list ? ` list="${f.list}"` : ''}>`;
+                    if(f.list) html += `<datalist id="${f.list}">${rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('')}</datalist>`;
+                }
+                html += `</div>`;
             });
-            if(!String(nuevo.nombre || '').trim()) { alert('Ingresá el Nombre y apellido.'); return; }
-            nuevo.nombre = nuevo.nombre.trim();
-            datosAgenda()[seccion].push(nuevo);
-            persistirAgendaLocal();
-            renderAgendaSeccion(seccion);
+            return html;
         }
 
-        function actualizarContactoAgenda(seccion, id, campo, valor) {
-            const c = (datosAgenda()[seccion] || []).find(x => x.id === id);
-            if(!c) return;
-            c[campo] = valor;
+        function abrirModalAgendaContacto(seccion, id) {
+            if(!AGENDA_CONF[seccion]) return;
+            agendaModalSeccion = seccion;
+            agendaModalEditId = id || null;
+            let valores = null;
+            if(id) {
+                valores = (datosAgenda()[seccion] || []).find(c => c.id === id) || null;
+                if(!valores) return;
+            }
+            const titulo = id ? `✏️ Editar contacto — ${AGENDA_CONF[seccion].titulo}` : `➕ Nuevo contacto — ${AGENDA_CONF[seccion].titulo}`;
+            document.getElementById('agendaModalTitle').innerText = titulo;
+            document.getElementById('agendaModalFields').innerHTML = agendaFieldsHTML(seccion, valores);
+            document.getElementById('modalAgendaContacto').classList.add('open');
+            const first = document.getElementById('agModal_nombre');
+            if(first) setTimeout(() => first.focus(), 50);
+        }
+
+        function cerrarModalAgendaContacto(e) {
+            if(e && e.target && e.target.classList && e.target.classList.contains('form-input')) return;
+            const m = document.getElementById('modalAgendaContacto');
+            if(!e || e.target === m) {
+                m.classList.remove('open');
+                agendaModalSeccion = null;
+                agendaModalEditId = null;
+            }
+        }
+
+        function guardarModalAgendaContacto() {
+            const seccion = agendaModalSeccion;
+            if(!seccion || !AGENDA_CONF[seccion]) return;
+            const conf = AGENDA_CONF[seccion];
+            let datos = {};
+            conf.fields.forEach(f => {
+                const el = document.getElementById('agModal_' + f.k);
+                datos[f.k] = el ? String(el.value || '').trim() : '';
+            });
+            if(!datos.nombre) { alert('Ingresá el Nombre y apellido.'); return; }
+            if(seccion === 'oficios' && !datos.rubro) datos.rubro = OFICIOS_BASE[0];
+            if(agendaModalEditId) {
+                const c = (datosAgenda()[seccion] || []).find(x => x.id === agendaModalEditId);
+                if(c) Object.assign(c, datos);
+            } else {
+                datos.id = 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                datosAgenda()[seccion].push(datos);
+            }
             persistirAgendaLocal();
-            if(campo === 'telefono') renderAgendaSeccion(seccion);
+            document.getElementById('modalAgendaContacto').classList.remove('open');
+            agendaModalSeccion = null;
+            agendaModalEditId = null;
+            renderAgendaSeccion(seccion);
+            const dl = document.getElementById('agendaRubrosList');
+            if(dl) dl.innerHTML = rubrosOficiosAgenda().map(r => `<option value="${escaparHTMLTexto(r)}"></option>`).join('');
         }
 
         function eliminarContactoAgenda(seccion, id) {
