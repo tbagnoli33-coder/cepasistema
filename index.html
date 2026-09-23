@@ -781,7 +781,7 @@
                     { k: 'nombre', type: 'text', label: 'NOMBRE Y APELLIDO', placeholder: 'Nombre y apellido', required: true },
                     { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
                     { k: 'queHace', type: 'text', label: 'QUÉ HACE', placeholder: 'Ej: Músico, bailarín...' },
-                    { k: 'honorario', type: 'select', label: 'AD HONOREM O CACHÉ', opts: ['Ad honorem', 'Caché'] }
+                    { k: 'honorario', type: 'select', label: 'AD HONOREM O CACHÉ', opts: ['Ad honorem', 'Caché', 'Sin info.'] }
                 ]
             },
             institucionales: {
@@ -791,7 +791,7 @@
                     { k: 'nombre', type: 'text', label: 'NOMBRE Y APELLIDO', placeholder: 'Nombre y apellido', required: true },
                     { k: 'telefono', type: 'tel', label: 'TELÉFONO', placeholder: 'Ej: 11 5555-5555' },
                     { k: 'institucion', type: 'text', label: 'INSTITUCIÓN', placeholder: 'Ej: Municipalidad...' },
-                    { k: 'vinculo', type: 'select', label: 'VÍNCULO', opts: ['Vínculo cercano', 'Referente'] }
+                    { k: 'vinculo', type: 'text', label: 'QUIÉN LO TRAJO / CONTACTO CERCANO', placeholder: 'Ej: María López (quien lo acercó)' }
                 ]
             }
         };
@@ -842,15 +842,15 @@
         }
 
         function badgeHonorario(v) {
-            const t = String(v || 'Ad honorem');
-            const cls = t === 'Caché' ? 'ok' : 'muted';
+            const t = String(v || 'Sin info.');
+            const cls = t === 'Caché' ? 'ok' : (t === 'Ad honorem' ? 'muted' : 'warn');
             return `<span class="agenda-badge ${cls}">${escaparHTMLTexto(t)}</span>`;
         }
 
-        function badgeVinculo(v) {
-            const t = String(v || 'Vínculo cercano');
-            const cls = t === 'Referente' ? 'ok' : 'muted';
-            return `<span class="agenda-badge ${cls}">${escaparHTMLTexto(t)}</span>`;
+        function badgeVinculoTexto(v) {
+            const t = String(v || '').trim();
+            if(!t) return '';
+            return `<span class="agenda-badge muted">Por: ${escaparHTMLTexto(t)}</span>`;
         }
 
         function telHTML(tel) {
@@ -885,7 +885,7 @@
                 <div class="ac-nombre">${escaparHTMLTexto(c.nombre || 'Sin nombre')}</div>
                 <div class="ac-meta">${telHTML(c.telefono)}</div>
                 <div class="ac-meta">${escaparHTMLTexto(c.institucion || '—')}</div>
-                ${badgeVinculo(c.vinculo)}
+                ${badgeVinculoTexto(c.vinculo)}
             </div>`;
         }
 
