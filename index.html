@@ -18,11 +18,14 @@
         .tabla-contable th:first-child, .tabla-contable td:first-child { min-width: 110px !important; font-size: 0.7rem !important; }
         .celda-monto { min-width: 62px !important; }
         .input-monto { font-size: 0.75rem !important; padding: 1px !important; }
-        .barra-guardar-contable { position: fixed; bottom: 24px; left: 24px; right: 24px; z-index: 1500; display: flex; align-items: center; gap: 12px; pointer-events: none; }
+        .barra-guardar-contable { position: fixed; bottom: 24px; left: 24px; right: 24px; z-index: 1500; display: flex; align-items: center; justify-content: center; gap: 16px; pointer-events: none; }
         .barra-guardar-contable > * { pointer-events: auto; }
-        .aviso-guardar-contable { flex: 1; padding: 12px 20px; background: #fdeaea; color: #c0392b; border: 1px solid rgba(192, 57, 43, 0.35); border-radius: 50px; font-weight: 700; font-size: .85rem; display: none; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(192, 57, 43, 0.2); }
-        .btn-guardar-flotante { position: relative; flex-shrink: 0; padding: 12px 20px; background: #8e44ad; color: #fff; border: none; border-radius: 50px; font-weight: 700; font-size: .85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(142,68,173,0.4); transition: .2s; }
+        .aviso-guardar-contable { display: none; padding: 12px 24px; background: #fdeaea; color: #c0392b; border: 1px solid rgba(192, 57, 43, 0.35); border-radius: 50px; font-weight: 700; font-size: .85rem; align-items: center; justify-content: center; text-align: center; gap: 8px; box-shadow: 0 4px 12px rgba(192, 57, 43, 0.2); }
+        .btn-guardar-flotante { position: relative; flex-shrink: 0; padding: 14px 56px; background: #8e44ad; color: #fff; border: none; border-radius: 50px; font-weight: 700; font-size: .95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(142,68,173,0.4); transition: padding .25s, font-size .25s, transform .2s, box-shadow .2s, background .2s; }
         .btn-guardar-flotante:hover { background: #732d91; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(142,68,173,0.5); }
+        .barra-guardar-contable.con-aviso { justify-content: space-between; }
+        .barra-guardar-contable.con-aviso .aviso-guardar-contable { display: flex; flex: 1; min-width: 0; max-width: none; margin-right: 0; }
+        .barra-guardar-contable.con-aviso .btn-guardar-flotante { padding: 12px 20px; font-size: .85rem; }
         .th-orden-contable { cursor: pointer; user-select: none; }
         .th-orden-contable:hover { color: var(--accent); }
         .th-orden-contable .flecha-orden { font-size: .65rem; opacity: .55; margin-left: 3px; }
@@ -811,14 +814,14 @@
 
         function marcarCambiosContables() {
             hayCambiosContables = true;
-            let b = document.getElementById('aviso-guardar-contable');
-            if (b) b.style.display = 'flex';
+            let barra = document.querySelector('.barra-guardar-contable');
+            if (barra) barra.classList.add('con-aviso');
         }
 
         function ocultarAvisoGuardar() {
             hayCambiosContables = false;
-            let b = document.getElementById('aviso-guardar-contable');
-            if (b) b.style.display = 'none';
+            let barra = document.querySelector('.barra-guardar-contable');
+            if (barra) barra.classList.remove('con-aviso');
         }
 
         function ordenarColTalleres(col) {
@@ -1398,7 +1401,7 @@
 
         function renderTabsContables() {
             document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div><div class="barra-guardar-contable"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
-            if (hayCambiosContables) { let av = document.getElementById('aviso-guardar-contable'); if (av) av.style.display = 'flex'; }
+            if (hayCambiosContables) { let barra = document.querySelector('.barra-guardar-contable'); if (barra) barra.classList.add('con-aviso'); }
             renderTablaTalleres(); renderTablaFlujoCaja();
         }
         function switchContableTab(tabName) {
