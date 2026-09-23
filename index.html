@@ -52,8 +52,8 @@
         .agenda-del { position: absolute; top: 4px; right: 4px; border: none; background: transparent; color: #c0392b; cursor: pointer; font-size: .75rem; line-height: 1; padding: 2px; opacity: .55; }
         .agenda-del:hover { opacity: 1; }
         .agenda-vacio { color: #95a5a6; font-size: .68rem; text-align: center; padding: 12px 6px; font-style: italic; }
-        .btn-agenda-add { position: fixed; bottom: 92px; left: 24px; z-index: 1500; width: 52px; height: 52px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 1.7rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(52,152,219,0.45); display: flex; align-items: center; justify-content: center; transition: .2s; }
-        .btn-agenda-add:hover { background: #2980b9; transform: translateY(-2px); }
+        .btn-agenda-add { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 1500; width: 52px; height: 52px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 1.7rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(52,152,219,0.45); display: flex; align-items: center; justify-content: center; transition: .2s; }
+        .btn-agenda-add:hover { background: #2980b9; transform: translateX(-50%) translateY(-2px); }
         .agenda-wrap { padding-bottom: 10px; }
         @media (max-width: 1200px) { .agenda-grid-oficios { grid-template-columns: repeat(3, minmax(0, 1fr)); } .agenda-grid-densa { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         @media (max-width: 768px) { .agenda-grid-oficios, .agenda-grid-densa { grid-template-columns: repeat(2, minmax(0, 1fr)); } .agenda-card-oficio, .agenda-card-densa { min-height: 220px; max-height: 320px; } }
