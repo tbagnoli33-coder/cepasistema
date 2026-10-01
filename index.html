@@ -1425,17 +1425,16 @@
                 // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
                 if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
 
-                // Regla unificada:
+                // Regla unificada (SIN inactivación automática por deuda):
+                // La inactivación solo ocurre por flag manual (s.inactivoManual), ya resuelto arriba.
+                // El control de deuda solo marca día / pendiente / mora.
                 // 1) Si el mes actual está pago => al día (sin importar meses viejos).
-                // 2) Si no tiene NINGÚN mes pago en todo el año => inactivo.
-                // 3) Si no, se cuentan meses vencidos impagos desde el mes de alta (si es de este año)
+                //    Esto permite que deudas viejas (ej. Ene-Feb) NO afecten si lo reciente está pago.
+                // 2) Si no, se cuentan meses vencidos impagos desde el mes de alta (si es de este año)
                 //    o desde enero (si es de un año anterior), sin contar el mes actual:
-                //    0 => día, 1 => pendiente, 2 => mora, 3+ => inactivo.
+                //    0 => día, 1 => pendiente, 2 o más => mora. Nunca inactivo.
                 let pagoMesActualEst = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
                 if(pagoMesActualEst) { s.estadoCalculado = 'dia'; return; }
-
-                let tieneAlgunPago = mesesLista.some(m => s.pagos[m] && s.pagos[m] !== "");
-                if(!tieneAlgunPago) { s.estadoCalculado = 'inactivo'; return; }
 
                 let mesInicioConteo = 0;
                 if(s.fechaCreacionStr && s.fechaCreacionStr.indexOf('/') !== -1) {
@@ -1453,8 +1452,7 @@
                 for(let i = mesInicioConteo; i < indiceMesActual; i++) { let m = mesesLista[i]; if(!(s.pagos[m] && s.pagos[m] !== "")) mesesVencidosImpagos++; }
                 if(mesesVencidosImpagos === 0) s.estadoCalculado = 'dia';
                 else if(mesesVencidosImpagos === 1) s.estadoCalculado = 'pendiente';
-                else if(mesesVencidosImpagos === 2) s.estadoCalculado = 'mora';
-                else s.estadoCalculado = 'inactivo';
+                else s.estadoCalculado = 'mora';
             });
         }
 
@@ -1604,7 +1602,8 @@
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
 
-                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${s.estadoCalculado === 'inactivo' ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${s.estadoCalculado === 'inactivo' ? 'Reactivar' : 'Inactivar'}</button>` : '';
+                let estaInactivoCard = (s.inactivoManual || s.estadoCalculado === 'inactivo');
+                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${estaInactivoCard ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${estaInactivoCard ? 'Reactivar' : 'Inactivar'}</button>` : '';
                 let accionesDevExtra = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR') ? `
                         <button class='btn-micro btn-micro-blue' onclick='abrirModalAsignarProfe(${s.id})'>PROFESOR/A</button>
                         <button class='btn-micro' style='color:#c0392b; border: 1px solid #c0392b;' onclick='solicitarEliminarSocio(${s.id}); event.stopPropagation();'>🗑️ ELIMINAR</button>` : '';
@@ -1847,7 +1846,7 @@
             }
         }
 
-        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); if(!s) return; let estabaInactivo = (s.estadoCalculado === 'inactivo'); if(estabaInactivo) { if(!confirm(`¿Reactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = false; s.reactivadoManual = true; } else { s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
+        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); if(!s) return; let estabaInactivo = (s.inactivoManual || s.estadoCalculado === 'inactivo'); if(estabaInactivo) { if(!confirm(`¿Reactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = false; s.reactivadoManual = false; } else { if(!confirm(`¿Inactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
         function solicitarEliminarSocio(id) { if(confirm("¿Seguro de eliminar permanentemente?")) { sociosData = sociosData.filter(s => s.id !== id); renderizarTodo(); fetch(SCRIPT_URL + "?action=eliminar", { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ID: id }) }); } }
         function esComisionDirectiva(socio) { return !!(socio && socio.esCD); }
 
@@ -2326,7 +2325,8 @@
             if(s.formaPago === 'MP') {
                 let plan = planMPSocio(s);
                 let clasePlan = plan === 'semestral' ? 'pago-tag-mp-semestral' : plan === 'anual' ? 'pago-tag-mp-anual' : 'pago-tag-mp-mensual';
-                return `<span class='${clasePlan}' title='Plan ${plan}'>💳 M. Pago</span>`;
+                let etiquetaPlan = plan === 'semestral' ? 'Semestral' : plan === 'anual' ? 'Anual' : 'Mensual';
+                return `<span class='${clasePlan}'>💳 MP ${etiquetaPlan}</span>`;
             }
             if(s.formaPago === 'MP_CAIDO') {
                 let plan = planMPSocio(s);
