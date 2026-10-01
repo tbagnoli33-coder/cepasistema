@@ -70,6 +70,9 @@
         .nota-card .ganancia { background: var(--verde); display: inline-block; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; }
         .nota-card.nueva { background: transparent; border: 2px dashed #bdc3c7; color: #7f8c8d; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-top:2px dashed #bdc3c7; }
         .nota-card.nueva:hover { background: #fdfdfd; border-color: var(--primary); color: var(--primary); }
+        .pago-tag-mp-mensual { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         @media (max-width:768px){.mobile-menu-btn{display:block}.topbar{height:auto;min-height:60px;padding:12px 10px;flex-wrap:wrap;gap:10px}.topbar>div{display:flex;flex-direction:column;flex-grow:1}.topbar h2{font-size:.95rem;margin-bottom:2px;line-height:1.3}.top-nav-icons{margin-right:0;padding-right:0;border-right:none}.btn-nuevo-socio,.btn-prueba,.btn-sync-mp{font-size:.7rem;padding:8px 12px;margin-left:auto;width:100%;justify-content:center;margin-bottom:5px}.content-body{padding:15px;padding-bottom:120px!important}.sidebar{position:fixed;left:-280px;height:100%;transition:left .3s ease;box-shadow:2px 0 10px rgba(0,0,0,0.2)}.sidebar.open{left:0}.right-panel{position:fixed;right:-260px;height:100%;transition:right .3s ease;box-shadow:-2px 0 10px rgba(0,0,0,0.2)}.right-panel.open{right:0}.right-panel.collapsed{right:-260px;width:260px;min-width:260px;border-left:1px solid var(--borde)}.btn-toggle-panel{width:28px;height:60px;font-size:.8rem;box-shadow:-3px 0 8px rgba(0,0,0,0.1);border-radius:8px 0 0 8px}.tiles-grid{grid-template-columns:1fr 1fr;gap:10px}.tile{padding:12px}.tile-number{font-size:1.4rem}.search-row{flex-direction:column;align-items:stretch}.search-wrapper,.sort-wrapper{width:100%}.filter-buttons{justify-content:space-between}.btn-filter{flex:1 1 45%}.socio-card-header{flex-direction:column;align-items:flex-start;gap:12px}.socio-right-panel{width:100%;margin-left:0;align-items:center;gap:12px}.meses-grid{flex-wrap:wrap;justify-content:center;max-width:100%}.mes-interact{width:28px;height:28px;font-size:.7rem}.admin-micro-actions{justify-content:center}.form-row.flex-row{flex-direction:column;gap:15px}.workshops-grid{grid-template-columns:1fr}.modal-box.form-modal{padding:20px 15px}}
     </style>
 </head>
@@ -1596,8 +1599,7 @@
                 card.className = clasesCardSocio(s);
                 
                 let mesesHtml = mesesLista.map(m => `<div class='mes-interact ${s.pagos[m] && s.pagos[m] !== "" ? 'pago' : ''}' data-socio-id='${s.id}' data-mes='${m}'>${m}</div>`).join('');
-                let planSufijo = (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') ? ` <span style="font-weight:400; opacity:.85;">${planMPSocio(s)}</span>` : '';
-                let fpTag = s.formaPago === 'MP' ? `<span class='pago-tag-mp'>💳 M. Pago${planSufijo}</span>` : s.formaPago === 'MP_CAIDO' ? `<span class='pago-tag-tr' style='background:#fdeaea; color:#c0392b;'>🛑 MP Caído${planSufijo}</span>` : s.formaPago === 'EFECTIVO' ? `<span class='pago-tag-ef'>💵 Efectivo</span>` : s.formaPago === 'TRANSFERENCIA_MP' ? `<span class='pago-tag-tr'>🏦 Transf. MP</span>` : s.formaPago === 'TRANSFERENCIA_C' ? `<span class='pago-tag-credicoop'><span class='credicoop-text'>🏦 Transf. por Credicoop</span><span class='credicoop-stripe'></span></span>` : `<span class='pago-tag-tr'>🏦 Transf.</span>`;
+                let fpTag = obtenerTagMP(s);
                 
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
@@ -2315,6 +2317,26 @@
             if(!datosContables || !datosContables["_MP_PLANES_"]) return 'mensual';
             let p = datosContables["_MP_PLANES_"][socio.id];
             return (p === 'mensual' || p === 'semestral' || p === 'anual') ? p : 'mensual';
+        }
+
+        // Genera la etiqueta de forma de pago para la card del socio.
+        // Diferencia visualmente el plan MP (mensual / semestral / anual) y
+        // mantiene los casos ya existentes (MP caído, efectivo, transferencias).
+        function obtenerTagMP(s) {
+            if(s.formaPago === 'MP') {
+                let plan = planMPSocio(s);
+                let clasePlan = plan === 'semestral' ? 'pago-tag-mp-semestral' : plan === 'anual' ? 'pago-tag-mp-anual' : 'pago-tag-mp-mensual';
+                return `<span class='${clasePlan}' title='Plan ${plan}'>💳 M. Pago</span>`;
+            }
+            if(s.formaPago === 'MP_CAIDO') {
+                let plan = planMPSocio(s);
+                let etiquetaPlan = plan.charAt(0).toUpperCase() + plan.slice(1);
+                return `<span class='pago-tag-tr' style='background:#fdeaea; color:#c0392b;'>🛑 MP Caído <span style="font-weight:400; opacity:.85;">${etiquetaPlan}</span></span>`;
+            }
+            if(s.formaPago === 'EFECTIVO') return `<span class='pago-tag-ef'>💵 Efectivo</span>`;
+            if(s.formaPago === 'TRANSFERENCIA_MP') return `<span class='pago-tag-tr'>🏦 Transf. MP</span>`;
+            if(s.formaPago === 'TRANSFERENCIA_C') return `<span class='pago-tag-credicoop'><span class='credicoop-text'>🏦 Transf. por Credicoop</span><span class='credicoop-stripe'></span></span>`;
+            return `<span class='pago-tag-tr'>🏦 Transf.</span>`;
         }
 
         function analizarTextoCSV(csvText, nombreArchivo, registrarHistorial = true) {
