@@ -76,8 +76,6 @@
         .mp-vinculo-tag { padding: 2px 6px; border-radius: 4px; font-size: .58rem; font-weight: 700; white-space: nowrap; }
         .mp-vinculo-ok { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
         .mp-vinculo-falta { background: #fef5e7; color: #b9770e; border: 1px solid #f5c273; }
-        .tile.tile-fijo { cursor: default; }
-        .tile.tile-fijo:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .btn-micro.btn-micro-sugerido { color: #fff; background: #e67e22; border: 1px solid #d35400; animation: pulsoSugerido 1.8s ease-in-out infinite; }
         .btn-micro.btn-micro-sugerido:hover { background: #d35400; }
         @keyframes pulsoSugerido { 0%,100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.5); } 50% { box-shadow: 0 0 0 4px rgba(230,126,34,0); } }
@@ -183,16 +181,16 @@
             <div class="content-body">
                 <div id="header-tabla-normal">
                     <div class="tiles-grid">
-                        <div class="tile tile-fijo" id="tile-todos" style="border-left: 4px solid var(--primary);">
+                        <div class="tile active-filter" id="tile-todos" onclick="filtrarFormaPago('todos')" style="border-left: 4px solid var(--primary);">
                             <span class="tile-number" id="count-total">0</span><span class="tile-label">Activos</span>
                         </div>
-                        <div class="tile tile-fijo" id="tile-MP" style="border-left: 4px solid var(--accent);">
+                        <div class="tile" id="tile-MP" onclick="filtrarFormaPago('MP')" style="border-left: 4px solid var(--accent);">
                             <span class="tile-number" id="count-mp">0</span><span class="tile-label">💳 M. Pago</span>
                         </div>
-                        <div class="tile tile-fijo" id="tile-EFECTIVO" style="border-left: 4px solid #f1c40f;">
+                        <div class="tile" id="tile-EFECTIVO" onclick="filtrarFormaPago('EFECTIVO')" style="border-left: 4px solid #f1c40f;">
                             <span class="tile-number" id="count-ef">0</span><span class="tile-label">💵 Efectivo</span>
                         </div>
-                        <div class="tile tile-fijo" id="tile-TRANSFERENCIA" style="border-left: 4px solid #34495e;">
+                        <div class="tile" id="tile-TRANSFERENCIA" onclick="filtrarFormaPago('TRANSFERENCIA')" style="border-left: 4px solid #34495e;">
                             <span class="tile-number" id="count-tr">0</span><span class="tile-label">🏦 Transf.</span>
                         </div>
                     </div>
@@ -1623,11 +1621,11 @@
                 // Indicador de vinculación MP: solo para socios que pagan por MP.
                 // Verde "vinculado" si tiene payer_id guardado en la ficha; ámbar "sin vincular" si falta.
                 let esSocioMP = (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO');
-                let tienePayerId = String(s.usuarioMP || '').trim() !== '';
+                let payerIdVinculado = payerIdSocio(s);
                 let mpVinculoTag = esSocioMP
-                    ? (tienePayerId
-                        ? `<span class='mp-vinculo-tag mp-vinculo-ok' title='Vinculado a MP por ID (${String(s.usuarioMP).trim()})'>🔗 MP vinculado</span>`
-                        : `<span class='mp-vinculo-tag mp-vinculo-falta' title='Falta vincular el payer_id de MP. Vinculalo desde Análisis MP.'>⚠️ MP sin vincular</span>`)
+                    ? (payerIdVinculado
+                        ? `<span class='mp-vinculo-tag mp-vinculo-ok' title='Vinculado a MP por ID (${payerIdVinculado})'>🔗 MP vinculado</span>`
+                        : `<span class='mp-vinculo-tag mp-vinculo-falta' title='Falta vincular. Subí el CSV en Análisis MP: los que matchean por nombre se vinculan solos; los demás, con el botón &quot;Le paga a socio&quot;.'>⚠️ MP sin vincular</span>`)
                     : '';
                 
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
@@ -1957,6 +1955,7 @@
             if(!data["_MP_VINCULADOS_"]) data["_MP_VINCULADOS_"] = {};
             if(!data["_MP_REPORTES_"]) data["_MP_REPORTES_"] = [];
             if(!data["_MP_PLANES_"] || typeof data["_MP_PLANES_"] !== 'object' || data["_MP_PLANES_"] === null || Array.isArray(data["_MP_PLANES_"])) data["_MP_PLANES_"] = {};
+            if(!data["_MP_PAYER_IDS_"] || typeof data["_MP_PAYER_IDS_"] !== 'object' || data["_MP_PAYER_IDS_"] === null || Array.isArray(data["_MP_PAYER_IDS_"])) data["_MP_PAYER_IDS_"] = {};
             asegurarAgendaEn(data);
             return data;
         }
@@ -2349,6 +2348,28 @@
             return (p === 'mensual' || p === 'semestral' || p === 'anual') ? p : 'mensual';
         }
 
+        // payer_id de MP vinculado a un socio. Primero la bóveda (persistencia confiable),
+        // luego el campo usuarioMP de la ficha como respaldo.
+        function payerIdSocio(socio) {
+            if(!socio) return '';
+            if(datosContables && datosContables["_MP_PAYER_IDS_"]) {
+                let p = datosContables["_MP_PAYER_IDS_"][socio.id];
+                if(p !== undefined && p !== null && String(p).trim() !== '') return String(p).trim();
+            }
+            return String(socio.usuarioMP || '').trim();
+        }
+
+        // Guarda el payer_id de un socio en la bóveda (y en la ficha). Devuelve true si cambió.
+        function vincularPayerIdSocio(socio, payerId) {
+            payerId = String(payerId || '').trim();
+            if(!socio || !payerId) return false;
+            asegurarClavesMP();
+            if(String(datosContables["_MP_PAYER_IDS_"][socio.id] || '').trim() === payerId) return false;
+            datosContables["_MP_PAYER_IDS_"][socio.id] = payerId;
+            socio.usuarioMP = payerId;
+            return true;
+        }
+
         // Genera la etiqueta de forma de pago para la card del socio.
         // Diferencia visualmente el plan MP (mensual / semestral / anual) y
         // mantiene los casos ya existentes (MP caído, efectivo, transferencias).
@@ -2433,6 +2454,7 @@
             let alertasCount = 0;
             let activosSinSocio = [];
             let huboCambioPlanes = false;
+            let huboCambioVinculos = false;
             planesDetectadosMP = {};
             payerIdPorNombreMP = {};
 
@@ -2451,7 +2473,7 @@
                 let sociosMatch = [];
                 let matchPorId = false;
                 if(payerIdMP) {
-                    sociosMatch = sociosData.filter(s => String(s.usuarioMP || '').trim() === payerIdMP);
+                    sociosMatch = sociosData.filter(s => payerIdSocio(s) === payerIdMP);
                     if(sociosMatch.length > 0) matchPorId = true;
                 }
                 if(sociosMatch.length === 0) {
@@ -2473,11 +2495,10 @@
                         datosContables["_MP_PLANES_"][socio.id] = planDetectado;
                         huboCambioPlanes = true;
                     }
-                    // Auto-vinculación: si matcheó (por id o por nombre) y la ficha no tiene payer_id
-                    // guardado todavía, se lo persistimos para que el próximo análisis matchee directo por id.
-                    if(payerIdMP && !matchPorId && String(socio.usuarioMP || '').trim() === '') {
-                        socio.usuarioMP = payerIdMP;
-                        guardarSocioEnNube(socio, "actualizar");
+                    // Auto-vinculación: si matcheó (por nombre o vínculo) y aún no tiene payer_id,
+                    // lo guardamos en la bóveda para que el próximo análisis matchee directo por id.
+                    if(payerIdMP && !matchPorId && !payerIdSocio(socio)) {
+                        if(vincularPayerIdSocio(socio, payerIdMP)) { huboCambioPlanes = true; huboCambioVinculos = true; }
                     }
                     let esActivoSistema = (socio.formaPago === 'MP');
                     if(estaRealmenteCaido && esActivoSistema) {
@@ -2502,6 +2523,8 @@
             }
 
             if(huboCambioPlanes) guardarBovedaEnNube(true);
+            // Si se vincularon payer_ids nuevos, repintar las cards para refrescar el indicador MP.
+            if(huboCambioVinculos) renderizarSocios();
 
             if(activosSinSocio.length > 0) {
                 html += `<div style="margin-top:12px; padding:8px; background:#fff8e1; border:1px solid #f0d060; border-radius:6px;"><b style="color:#b8860b;">Suscriptores de MP sin socio en el sistema (${activosSinSocio.length}):</b><br><span style="font-size:0.8rem; color:#7f8c8d;">Pagan por MP pero todavía no figuran como socios. Podés darlos de alta rápidamente.</span>`;
@@ -2790,6 +2813,7 @@
             if(typeof datosContables["_MP_VINCULADOS_"] !== 'object' || datosContables["_MP_VINCULADOS_"] === null || Array.isArray(datosContables["_MP_VINCULADOS_"])) datosContables["_MP_VINCULADOS_"] = {};
             if(!Array.isArray(datosContables["_MP_REPORTES_"])) datosContables["_MP_REPORTES_"] = [];
             if(typeof datosContables["_MP_PLANES_"] !== 'object' || datosContables["_MP_PLANES_"] === null || Array.isArray(datosContables["_MP_PLANES_"])) datosContables["_MP_PLANES_"] = {};
+            if(typeof datosContables["_MP_PAYER_IDS_"] !== 'object' || datosContables["_MP_PAYER_IDS_"] === null || Array.isArray(datosContables["_MP_PAYER_IDS_"])) datosContables["_MP_PAYER_IDS_"] = {};
             asegurarAgendaEn(datosContables);
         }
 
@@ -2835,15 +2859,12 @@
             asegurarClavesMP();
             let norm = normalizarNombre(nombre);
             datosContables["_MP_VINCULADOS_"][norm] = socioId;
-            // Persistir el payer_id en la ficha del socio para que el próximo análisis
-            // lo matchee automáticamente por id (más confiable que por nombre).
+            // Persistir el payer_id en la bóveda para que el próximo análisis matchee por id.
             let payerId = String(payerIdPorNombreMP[norm] || '').trim();
             let socio = sociosData.find(s => s.id === socioId);
-            if(socio && payerId && String(socio.usuarioMP || '').trim() === '') {
-                socio.usuarioMP = payerId;
-                guardarSocioEnNube(socio, "actualizar");
-            }
+            if(socio && payerId) vincularPayerIdSocio(socio, payerId);
             guardarBovedaEnNube(true);
+            renderizarSocios();
             reRenderAuditoriaMP();
         }
 
