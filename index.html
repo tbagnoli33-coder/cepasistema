@@ -612,6 +612,7 @@
         let chartInstances = {}, expandedTalleres = new Set(), mapInstance = null, geoCache = JSON.parse(localStorage.getItem('cepas_geocache')) || {};
         let mapGeocodeToken = 0;
         let ultimoCsvTextoMP = null, ultimoNombreArchivoMP = null, planesDetectadosMP = {};
+        let payerIdPorNombreMP = {}; // nombre normalizado del suscriptor MP -> payer_id (para vinculación manual)
         let ordenTalleresContable = { col: null, dir: null };
         let hayCambiosContables = false;
         const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" } };
@@ -2394,8 +2395,9 @@
                 let payerId = idxPayerId !== -1 ? String(row[idxPayerId] || '').trim() : '';
                 if(!fullName && !payerId) continue;
                 let key = payerId ? ('pid:' + payerId) : ('nm:' + normalizarNombre(fullName));
-                if(!gruposMP[key]) gruposMP[key] = { nombre: fullName, filas: [] };
+                if(!gruposMP[key]) gruposMP[key] = { nombre: fullName, payerId: payerId, filas: [] };
                 if(fullName && !gruposMP[key].nombre) gruposMP[key].nombre = fullName;
+                if(payerId && !gruposMP[key].payerId) gruposMP[key].payerId = payerId;
                 gruposMP[key].filas.push({
                     status: (row[idxStatus] || '').toLowerCase(),
                     plan: detectarPlanMP(row, idxCols),
@@ -2419,6 +2421,7 @@
             let activosSinSocio = [];
             let huboCambioPlanes = false;
             planesDetectadosMP = {};
+            payerIdPorNombreMP = {};
 
             for(let key in gruposMP) {
                 let g = gruposMP[key];
@@ -2429,7 +2432,26 @@
                 let estaRealmenteCaido = !tieneActiva;
                 let badgePlan = ` <span style="background:#e8f4fd; color:#2471a3; border-radius:4px; padding:1px 5px; font-size:0.7rem; font-weight:700;">💳 ${planDetectado}</span>`;
 
-                let sociosMatch = sociosData.filter(s => mismaPersonaPorNombre(nombreMP, s.nombre));
+                // Match REFORZADO: 1) por payer_id (campo usuarioMP de la ficha), 2) por nombre como respaldo.
+                let payerIdMP = String(g.payerId || '').trim();
+                if(payerIdMP) payerIdPorNombreMP[normalizarNombre(nombreMP)] = payerIdMP;
+                let sociosMatch = [];
+                let matchPorId = false;
+                if(payerIdMP) {
+                    sociosMatch = sociosData.filter(s => String(s.usuarioMP || '').trim() === payerIdMP);
+                    if(sociosMatch.length > 0) matchPorId = true;
+                }
+                if(sociosMatch.length === 0) {
+                    // Vínculo manual previo (nombre normalizado -> socioId) guardado en la bóveda.
+                    let vinculadoId = datosContables["_MP_VINCULADOS_"][normalizarNombre(nombreMP)];
+                    if(vinculadoId !== undefined && vinculadoId !== null) {
+                        let sv = sociosData.find(s => s.id === vinculadoId);
+                        if(sv) sociosMatch = [sv];
+                    }
+                }
+                if(sociosMatch.length === 0) {
+                    sociosMatch = sociosData.filter(s => mismaPersonaPorNombre(nombreMP, s.nombre));
+                }
 
                 if(sociosMatch.length > 0) {
                   sociosMatch.forEach(socio => {
@@ -2437,6 +2459,12 @@
                     if(tieneActiva && datosContables["_MP_PLANES_"][socio.id] !== planDetectado) {
                         datosContables["_MP_PLANES_"][socio.id] = planDetectado;
                         huboCambioPlanes = true;
+                    }
+                    // Auto-vinculación: si matcheó (por id o por nombre) y la ficha no tiene payer_id
+                    // guardado todavía, se lo persistimos para que el próximo análisis matchee directo por id.
+                    if(payerIdMP && !matchPorId && String(socio.usuarioMP || '').trim() === '') {
+                        socio.usuarioMP = payerIdMP;
+                        guardarSocioEnNube(socio, "actualizar");
                     }
                     let esActivoSistema = (socio.formaPago === 'MP');
                     if(estaRealmenteCaido && esActivoSistema) {
@@ -2792,7 +2820,16 @@
         function vincularSuscriptorMP(nombre, socioId) {
             if(!esDesarrollador()) return;
             asegurarClavesMP();
-            datosContables["_MP_VINCULADOS_"][normalizarNombre(nombre)] = socioId;
+            let norm = normalizarNombre(nombre);
+            datosContables["_MP_VINCULADOS_"][norm] = socioId;
+            // Persistir el payer_id en la ficha del socio para que el próximo análisis
+            // lo matchee automáticamente por id (más confiable que por nombre).
+            let payerId = String(payerIdPorNombreMP[norm] || '').trim();
+            let socio = sociosData.find(s => s.id === socioId);
+            if(socio && payerId && String(socio.usuarioMP || '').trim() === '') {
+                socio.usuarioMP = payerId;
+                guardarSocioEnNube(socio, "actualizar");
+            }
             guardarBovedaEnNube(true);
             reRenderAuditoriaMP();
         }
