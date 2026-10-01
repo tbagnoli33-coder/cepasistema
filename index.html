@@ -73,6 +73,9 @@
         .pago-tag-mp-mensual { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .mp-vinculo-tag { padding: 2px 6px; border-radius: 4px; font-size: .58rem; font-weight: 700; white-space: nowrap; }
+        .mp-vinculo-ok { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
+        .mp-vinculo-falta { background: #fef5e7; color: #b9770e; border: 1px solid #f5c273; }
         .tile.tile-fijo { cursor: default; }
         .tile.tile-fijo:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .btn-micro.btn-micro-sugerido { color: #fff; background: #e67e22; border: 1px solid #d35400; animation: pulsoSugerido 1.8s ease-in-out infinite; }
@@ -1616,6 +1619,16 @@
                 
                 let mesesHtml = mesesLista.map(m => `<div class='mes-interact ${s.pagos[m] && s.pagos[m] !== "" ? 'pago' : ''}' data-socio-id='${s.id}' data-mes='${m}'>${m}</div>`).join('');
                 let fpTag = obtenerTagMP(s);
+
+                // Indicador de vinculación MP: solo para socios que pagan por MP.
+                // Verde "vinculado" si tiene payer_id guardado en la ficha; ámbar "sin vincular" si falta.
+                let esSocioMP = (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO');
+                let tienePayerId = String(s.usuarioMP || '').trim() !== '';
+                let mpVinculoTag = esSocioMP
+                    ? (tienePayerId
+                        ? `<span class='mp-vinculo-tag mp-vinculo-ok' title='Vinculado a MP por ID (${String(s.usuarioMP).trim()})'>🔗 MP vinculado</span>`
+                        : `<span class='mp-vinculo-tag mp-vinculo-falta' title='Falta vincular el payer_id de MP. Vinculalo desde Análisis MP.'>⚠️ MP sin vincular</span>`)
+                    : '';
                 
                 let devActions = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR' && s.formaPago === 'MP_CAIDO') ? 
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
@@ -1660,7 +1673,7 @@
                             <div class='socio-id-container'><span class='socio-id'>#${s.id}</span>${esComisionDirectiva(s) ? "<span class='badge-medalla'>🏅 COMISIÓN</span>" : ''}</div>
                             <div class='socio-detalles'>
                                 <h4>${s.nombre} ${s.profesorDe.length > 0 ? "<span class='badge-profe'>DOCENTE</span>" : ""} ${s.esTutor ? "<span class='badge-tutor'>TUTOR</span>" : ""}</h4>
-                                <div class='socio-meta'><span>${fpTag}</span><span>Talleres: ${s.talleres.join(', ') || 'Ninguno'}</span><span style='color:${colorEst}; font-weight:700;'>● ${labelEst}</span><span style="color:#7f8c8d;">📅 Alta: ${s.fechaCreacionStr}</span></div>
+                                <div class='socio-meta'><span>${fpTag}</span>${mpVinculoTag ? `<span>${mpVinculoTag}</span>` : ''}<span>Talleres: ${s.talleres.join(', ') || 'Ninguno'}</span><span style='color:${colorEst}; font-weight:700;'>● ${labelEst}</span><span style="color:#7f8c8d;">📅 Alta: ${s.fechaCreacionStr}</span></div>
                             </div>
                         </div>
                         <div class='socio-right-panel'>${contenidoDerecho}</div>
