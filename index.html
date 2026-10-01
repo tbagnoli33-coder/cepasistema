@@ -74,6 +74,16 @@
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-sinmetodo { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 700; white-space: nowrap; }
+        .tile.tile-info-utiles { grid-column: span 3; cursor: default; flex-direction: row; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+        .tile.tile-info-utiles:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .tile-info-utiles .info-util { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 12px 16px; border-left: 1px solid #eef1f4; min-width: 0; }
+        .tile-info-utiles .info-util:first-child { border-left: none; }
+        .tile-info-utiles .info-util-titulo { font-size: .68rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px; }
+        .tile-info-utiles .info-util-dato { font-size: .72rem; color: #555; line-height: 1.35; word-break: break-word; }
+        .tile-info-utiles .info-util-dato b { color: var(--primary); font-weight: 700; }
+        .tile-info-utiles .info-util-frase { flex: 1.4; justify-content: center; }
+        .tile-info-utiles .info-util-cita { font-style: italic; font-size: .72rem; color: #7f8c8d; line-height: 1.4; }
+        @media (max-width: 900px) { .tile.tile-info-utiles { grid-column: 1 / -1; flex-direction: column; } .tile-info-utiles .info-util { border-left: none; border-top: 1px solid #eef1f4; padding: 10px 12px; } .tile-info-utiles .info-util:first-child { border-top: none; } }
         .mp-vinculo-tag { padding: 2px 6px; border-radius: 4px; font-size: .58rem; font-weight: 700; white-space: nowrap; }
         .mp-vinculo-ok { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
         .mp-vinculo-falta { background: #fef5e7; color: #b9770e; border: 1px solid #f5c273; }
@@ -196,6 +206,26 @@
                         </div>
                         <div class="tile" id="tile-SINMETODO" onclick="filtrarFormaPago('SINMETODO')" style="border-left: 4px solid var(--rojo); display:none;">
                             <span class="tile-number" id="count-sin" style="color:var(--rojo);">0</span><span class="tile-label">⚠️ Sin método</span>
+                        </div>
+                        <div class="tile tile-info-utiles" id="tile-info-utiles">
+                            <div class="info-util">
+                                <span class="info-util-titulo">🏛️ Alquileres</span>
+                                <span class="info-util-dato">Salón grande: <b>$75.000</b> · Día: <b>$20.543</b></span>
+                                <span class="info-util-dato">Sala de talleres: <b>$37.500</b> · Día: <b>$10.000</b></span>
+                            </div>
+                            <div class="info-util">
+                                <span class="info-util-titulo">📶 WiFi CEPAS</span>
+                                <span class="info-util-dato">Red: <b>Red cc06</b></span>
+                                <span class="info-util-dato">Clave: <b>THAL2ATVZHZY</b></span>
+                            </div>
+                            <div class="info-util">
+                                <span class="info-util-titulo">📞 Contacto CEPAS</span>
+                                <span class="info-util-dato">Celular: <b>11 7363 0775</b></span>
+                                <span class="info-util-dato">Mail: <b>cepas.inst@gmail.com</b></span>
+                            </div>
+                            <div class="info-util info-util-frase">
+                                <span class="info-util-cita">"El compromiso con el bien común, la calidad de vida y la preservación de los espacios verdes ha forjado nuestra identidad barrial. El Centro Cultural CEPAS nació y se desarrolla con esa idea: ayer, hoy y mañana."</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1518,6 +1548,10 @@
             document.getElementById('count-sin').innerText = sinMetodo;
             // Solo mostramos el KPI si hay socios sin método (para no ocupar espacio si no aplica).
             if(tileSin) tileSin.style.display = sinMetodo > 0 ? 'flex' : 'none';
+            // El cajón de datos útiles ocupa el espacio restante de la 2da fila:
+            // 3 columnas si está el KPI "Sin método", 4 (fila completa) si no está.
+            let tileInfo = document.getElementById('tile-info-utiles');
+            if(tileInfo) tileInfo.style.gridColumn = (sinMetodo > 0) ? 'span 3' : '1 / -1';
         }
 
         function filtrarEstadoRapido(e, el) { filtroEstadoRapido = e; if(el) { document.querySelectorAll('.estado-filter').forEach(b => b.classList.remove('active')); el.classList.add('active'); } renderizarTodo(); }
