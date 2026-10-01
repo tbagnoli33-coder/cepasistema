@@ -2455,6 +2455,7 @@
             let activosSinSocio = [];
             let huboCambioPlanes = false;
             let huboCambioVinculos = false;
+            let cambiosPlanMP = []; // {id, nombre, anterior, nuevo} para mostrar qué planes se actualizaron
             planesDetectadosMP = {};
             payerIdPorNombreMP = {};
 
@@ -2492,8 +2493,10 @@
                   sociosMatch.forEach(socio => {
                     planesDetectadosMP[socio.id] = planDetectado;
                     if(tieneActiva && datosContables["_MP_PLANES_"][socio.id] !== planDetectado) {
+                        let planAnterior = datosContables["_MP_PLANES_"][socio.id] || 'mensual';
                         datosContables["_MP_PLANES_"][socio.id] = planDetectado;
                         huboCambioPlanes = true;
+                        cambiosPlanMP.push({ id: socio.id, nombre: socio.nombre, anterior: planAnterior, nuevo: planDetectado });
                     }
                     // Auto-vinculación: si matcheó (por nombre o vínculo) y aún no tiene payer_id,
                     // lo guardamos en la bóveda para que el próximo análisis matchee directo por id.
@@ -2523,8 +2526,8 @@
             }
 
             if(huboCambioPlanes) guardarBovedaEnNube(true);
-            // Si se vincularon payer_ids nuevos, repintar las cards para refrescar el indicador MP.
-            if(huboCambioVinculos) renderizarSocios();
+            // Repintar las cards para refrescar etiquetas de plan e indicador de vínculo MP.
+            if(huboCambioPlanes || huboCambioVinculos) renderizarSocios();
 
             if(activosSinSocio.length > 0) {
                 html += `<div style="margin-top:12px; padding:8px; background:#fff8e1; border:1px solid #f0d060; border-radius:6px;"><b style="color:#b8860b;">Suscriptores de MP sin socio en el sistema (${activosSinSocio.length}):</b><br><span style="font-size:0.8rem; color:#7f8c8d;">Pagan por MP pero todavía no figuran como socios. Podés darlos de alta rápidamente.</span>`;
@@ -2544,6 +2547,14 @@
                 let c = { mensual: 0, semestral: 0, anual: 0 };
                 idsPlan.forEach(id => { let p = planesDetectadosMP[id]; if(c[p] !== undefined) c[p]++; });
                 html += `<div style="margin-top:10px; padding:6px; background:#e8f4fd; border:1px solid #aed6f1; border-radius:6px; font-size:0.78rem; color:#2471a3;">📋 Planes MP detectados y guardados en ficha: <b>${c.mensual} mensual</b> · <b>${c.semestral} semestral</b> · <b>${c.anual} anual</b> (${idsPlan.length} socios)</div>`;
+            }
+
+            if(cambiosPlanMP.length > 0) {
+                html += `<div style="margin-top:10px; padding:8px; background:#eafaf1; border:1px solid #a9dfbf; border-radius:6px; font-size:0.8rem; color:#1e8449;"><b>🔄 Planes actualizados en esta pasada (${cambiosPlanMP.length}):</b>`;
+                cambiosPlanMP.forEach(ch => {
+                    html += `<div style="padding:3px 0; border-top:1px solid #d4efdf;">#${ch.id} <b>${escaparHTMLTexto(ch.nombre)}</b>: ${ch.anterior} → <b>${ch.nuevo}</b></div>`;
+                });
+                html += `</div>`;
             }
 
             if(alertasCount === 0 && activosSinSocio.length === 0) {
