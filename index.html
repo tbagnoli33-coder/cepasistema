@@ -74,16 +74,18 @@
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-sinmetodo { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 700; white-space: nowrap; }
-        .tile.tile-info-utiles { grid-column: span 3; cursor: default; flex-direction: row; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+        .tile.tile-info-utiles { grid-column: span 3; cursor: default; display: flex; flex-direction: row; align-items: stretch; justify-content: flex-start; gap: 0; padding: 0; overflow: hidden; position: relative; }
         .tile.tile-info-utiles:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .tile-info-utiles .info-util { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 12px 16px; border-left: 1px solid #eef1f4; min-width: 0; }
+        .tile-info-utiles .info-util { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 14px 16px; border-left: 1px solid #eef1f4; min-width: 0; overflow: hidden; }
         .tile-info-utiles .info-util:first-child { border-left: none; }
-        .tile-info-utiles .info-util-titulo { font-size: .68rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px; }
-        .tile-info-utiles .info-util-dato { font-size: .72rem; color: #555; line-height: 1.35; word-break: break-word; }
+        .tile-info-utiles .info-util-titulo { font-size: .66rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; display: block; }
+        .tile-info-utiles .info-util-dato { font-size: .72rem; color: #555; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; display: block; }
         .tile-info-utiles .info-util-dato b { color: var(--primary); font-weight: 700; }
-        .tile-info-utiles .info-util-frase { flex: 1.4; justify-content: center; }
-        .tile-info-utiles .info-util-cita { font-style: italic; font-size: .72rem; color: #7f8c8d; line-height: 1.4; }
-        @media (max-width: 900px) { .tile.tile-info-utiles { grid-column: 1 / -1; flex-direction: column; } .tile-info-utiles .info-util { border-left: none; border-top: 1px solid #eef1f4; padding: 10px 12px; } .tile-info-utiles .info-util:first-child { border-top: none; } }
+        .tile-info-utiles .info-util-frase { flex: 1.6 1 0; justify-content: center; }
+        .tile-info-utiles .info-util-cita { font-style: italic; font-size: .72rem; color: #7f8c8d; line-height: 1.45; overflow-wrap: anywhere; }
+        .tile-info-utiles .btn-editar-info { position: absolute; top: 6px; right: 8px; background: rgba(52,152,219,0.12); color: var(--accent); border: none; border-radius: 4px; font-size: .62rem; font-weight: 700; padding: 3px 8px; cursor: pointer; z-index: 2; }
+        .tile-info-utiles .btn-editar-info:hover { background: var(--accent); color: #fff; }
+        @media (max-width: 900px) { .tile.tile-info-utiles { grid-column: 1 / -1 !important; flex-direction: column; } .tile-info-utiles .info-util { border-left: none; border-top: 1px solid #eef1f4; padding: 12px 14px; } .tile-info-utiles .info-util:first-child { border-top: none; } }
         .mp-vinculo-tag { padding: 2px 6px; border-radius: 4px; font-size: .58rem; font-weight: 700; white-space: nowrap; }
         .mp-vinculo-ok { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
         .mp-vinculo-falta { background: #fef5e7; color: #b9770e; border: 1px solid #f5c273; }
@@ -207,26 +209,7 @@
                         <div class="tile" id="tile-SINMETODO" onclick="filtrarFormaPago('SINMETODO')" style="border-left: 4px solid var(--rojo); display:none;">
                             <span class="tile-number" id="count-sin" style="color:var(--rojo);">0</span><span class="tile-label">⚠️ Sin método</span>
                         </div>
-                        <div class="tile tile-info-utiles" id="tile-info-utiles">
-                            <div class="info-util">
-                                <span class="info-util-titulo">🏛️ Alquileres</span>
-                                <span class="info-util-dato">Salón grande: <b>$75.000</b> · Día: <b>$20.543</b></span>
-                                <span class="info-util-dato">Sala de talleres: <b>$37.500</b> · Día: <b>$10.000</b></span>
-                            </div>
-                            <div class="info-util">
-                                <span class="info-util-titulo">📶 WiFi CEPAS</span>
-                                <span class="info-util-dato">Red: <b>Red cc06</b></span>
-                                <span class="info-util-dato">Clave: <b>THAL2ATVZHZY</b></span>
-                            </div>
-                            <div class="info-util">
-                                <span class="info-util-titulo">📞 Contacto CEPAS</span>
-                                <span class="info-util-dato">Celular: <b>11 7363 0775</b></span>
-                                <span class="info-util-dato">Mail: <b>cepas.inst@gmail.com</b></span>
-                            </div>
-                            <div class="info-util info-util-frase">
-                                <span class="info-util-cita">"El compromiso con el bien común, la calidad de vida y la preservación de los espacios verdes ha forjado nuestra identidad barrial. El Centro Cultural CEPAS nació y se desarrolla con esa idea: ayer, hoy y mañana."</span>
-                            </div>
-                        </div>
+                        <div class="tile tile-info-utiles" id="tile-info-utiles"></div>
                     </div>
 
                     <div class="controls-bar">
@@ -478,6 +461,40 @@
             <div class="modal-buttons" style="margin-top: 30px;">
                 <button class="modal-btn btn-cancelar" onclick="cerrarModalNuevoSocio(null)">Cancelar</button>
                 <button class="modal-btn btn-confirmar" onclick="guardarFichaSocio()" style="background: var(--verde);">Guardar Ficha</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR DATOS ÚTILES -->
+    <div id="modalInfoUtiles" class="modal-overlay" onclick="cerrarModalInfoUtiles()">
+        <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 560px;">
+            <h3>✏️ Editar datos útiles</h3>
+            <div class="form-row">
+                <span class="form-label" style="display:block; margin-bottom:8px;">🏛️ Alquileres (valores en $)</span>
+                <div class="form-row flex-row">
+                    <div class="form-group"><label class="form-label">Salón grande</label><input type="text" id="iuSalon" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Día salón grande</label><input type="text" id="iuSalonDia" class="form-input"></div>
+                </div>
+                <div class="form-row flex-row">
+                    <div class="form-group"><label class="form-label">Sala de talleres</label><input type="text" id="iuSala" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Día sala de talleres</label><input type="text" id="iuSalaDia" class="form-input"></div>
+                </div>
+            </div>
+            <div class="form-row flex-row">
+                <div class="form-group"><label class="form-label">📶 WiFi - Red</label><input type="text" id="iuWifiRed" class="form-input"></div>
+                <div class="form-group"><label class="form-label">WiFi - Clave</label><input type="text" id="iuWifiClave" class="form-input"></div>
+            </div>
+            <div class="form-row flex-row">
+                <div class="form-group"><label class="form-label">📞 Celular</label><input type="text" id="iuCelular" class="form-input"></div>
+                <div class="form-group"><label class="form-label">✉️ Mail</label><input type="text" id="iuMail" class="form-input"></div>
+            </div>
+            <div class="form-row">
+                <label class="form-label">Frase institucional</label>
+                <textarea id="iuFrase" class="form-input" rows="4" style="resize:vertical; font-family:inherit;"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancelar" onclick="cerrarModalInfoUtiles()">Cancelar</button>
+                <button class="modal-btn btn-confirmar" onclick="guardarInfoUtiles()">Guardar</button>
             </div>
         </div>
     </div>
@@ -1552,6 +1569,7 @@
             // 3 columnas si está el KPI "Sin método", 4 (fila completa) si no está.
             let tileInfo = document.getElementById('tile-info-utiles');
             if(tileInfo) tileInfo.style.gridColumn = (sinMetodo > 0) ? 'span 3' : '1 / -1';
+            renderInfoUtiles();
         }
 
         function filtrarEstadoRapido(e, el) { filtroEstadoRapido = e; if(el) { document.querySelectorAll('.estado-filter').forEach(b => b.classList.remove('active')); el.classList.add('active'); } renderizarTodo(); }
@@ -2008,6 +2026,7 @@
             if(!data["_MP_REPORTES_"]) data["_MP_REPORTES_"] = [];
             if(!data["_MP_PLANES_"] || typeof data["_MP_PLANES_"] !== 'object' || data["_MP_PLANES_"] === null || Array.isArray(data["_MP_PLANES_"])) data["_MP_PLANES_"] = {};
             if(!data["_MP_PAYER_IDS_"] || typeof data["_MP_PAYER_IDS_"] !== 'object' || data["_MP_PAYER_IDS_"] === null || Array.isArray(data["_MP_PAYER_IDS_"])) data["_MP_PAYER_IDS_"] = {};
+            if(!data["_INFO_UTILES_"] || typeof data["_INFO_UTILES_"] !== 'object' || Array.isArray(data["_INFO_UTILES_"])) data["_INFO_UTILES_"] = {};
             asegurarAgendaEn(data);
             return data;
         }
@@ -2648,6 +2667,90 @@
         }
 
         function esDesarrollador() { return usuarioActual && usuarioActual.rol === 'DESARROLLADOR'; }
+        function puedeEditarInfoUtiles() { return usuarioActual && (usuarioActual.rol === 'DESARROLLADOR' || usuarioActual.rol === 'TESORERIA'); }
+
+        // Datos útiles del cajón institucional (editables). Se guardan en la bóveda.
+        function infoUtilesPorDefecto() {
+            return {
+                alquilerSalon: "75.000", alquilerSalonDia: "20.543",
+                alquilerSala: "37.500", alquilerSalaDia: "10.000",
+                wifiRed: "Red cc06", wifiClave: "THAL2ATVZHZY",
+                celular: "11 7363 0775", mail: "cepas.inst@gmail.com",
+                frase: "\"El compromiso con el bien común, la calidad de vida y la preservación de los espacios verdes ha forjado nuestra identidad barrial. El Centro Cultural CEPAS nació y se desarrolla con esa idea: ayer, hoy y mañana.\""
+            };
+        }
+        function obtenerInfoUtiles() {
+            if(!datosContables) datosContables = inicializarDatosContables();
+            let def = infoUtilesPorDefecto();
+            let guardado = datosContables["_INFO_UTILES_"];
+            if(!guardado || typeof guardado !== 'object' || Array.isArray(guardado)) return def;
+            return Object.assign({}, def, guardado);
+        }
+
+        function renderInfoUtiles() {
+            let cont = document.getElementById('tile-info-utiles');
+            if(!cont) return;
+            let d = obtenerInfoUtiles();
+            let e = escaparHTMLTexto;
+            let btnEditar = puedeEditarInfoUtiles() ? `<button class="btn-editar-info" onclick="abrirModalInfoUtiles(); event.stopPropagation();">✏️ Editar</button>` : '';
+            cont.innerHTML = `
+                ${btnEditar}
+                <div class="info-util">
+                    <span class="info-util-titulo">🏛️ Alquileres</span>
+                    <span class="info-util-dato">Salón grande: <b>$${e(d.alquilerSalon)}</b></span>
+                    <span class="info-util-dato">Día salón grande: <b>$${e(d.alquilerSalonDia)}</b></span>
+                    <span class="info-util-dato">Sala de talleres: <b>$${e(d.alquilerSala)}</b></span>
+                    <span class="info-util-dato">Día sala de talleres: <b>$${e(d.alquilerSalaDia)}</b></span>
+                </div>
+                <div class="info-util">
+                    <span class="info-util-titulo">📶 WiFi CEPAS</span>
+                    <span class="info-util-dato">Red: <b>${e(d.wifiRed)}</b></span>
+                    <span class="info-util-dato">Clave: <b>${e(d.wifiClave)}</b></span>
+                </div>
+                <div class="info-util">
+                    <span class="info-util-titulo">📞 Contacto CEPAS</span>
+                    <span class="info-util-dato">Celular: <b>${e(d.celular)}</b></span>
+                    <span class="info-util-dato">Mail: <b>${e(d.mail)}</b></span>
+                </div>
+                <div class="info-util info-util-frase">
+                    <span class="info-util-cita">${e(d.frase)}</span>
+                </div>`;
+        }
+
+        function abrirModalInfoUtiles() {
+            if(!puedeEditarInfoUtiles()) return;
+            let d = obtenerInfoUtiles();
+            document.getElementById('iuSalon').value = d.alquilerSalon;
+            document.getElementById('iuSalonDia').value = d.alquilerSalonDia;
+            document.getElementById('iuSala').value = d.alquilerSala;
+            document.getElementById('iuSalaDia').value = d.alquilerSalaDia;
+            document.getElementById('iuWifiRed').value = d.wifiRed;
+            document.getElementById('iuWifiClave').value = d.wifiClave;
+            document.getElementById('iuCelular').value = d.celular;
+            document.getElementById('iuMail').value = d.mail;
+            document.getElementById('iuFrase').value = d.frase;
+            document.getElementById('modalInfoUtiles').classList.add('open');
+        }
+        function cerrarModalInfoUtiles() { document.getElementById('modalInfoUtiles').classList.remove('open'); }
+        function guardarInfoUtiles() {
+            if(!puedeEditarInfoUtiles()) return;
+            if(!datosContables) datosContables = inicializarDatosContables();
+            datosContables["_INFO_UTILES_"] = {
+                alquilerSalon: document.getElementById('iuSalon').value.trim(),
+                alquilerSalonDia: document.getElementById('iuSalonDia').value.trim(),
+                alquilerSala: document.getElementById('iuSala').value.trim(),
+                alquilerSalaDia: document.getElementById('iuSalaDia').value.trim(),
+                wifiRed: document.getElementById('iuWifiRed').value.trim(),
+                wifiClave: document.getElementById('iuWifiClave').value.trim(),
+                celular: document.getElementById('iuCelular').value.trim(),
+                mail: document.getElementById('iuMail').value.trim(),
+                frase: document.getElementById('iuFrase').value.trim()
+            };
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            guardarBovedaEnNube(true);
+            cerrarModalInfoUtiles();
+            renderInfoUtiles();
+        }
 
         function escaparHTMLTexto(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
