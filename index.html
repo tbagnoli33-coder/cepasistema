@@ -73,6 +73,7 @@
         .pago-tag-mp-mensual { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .pago-tag-sinmetodo { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 700; white-space: nowrap; }
         .mp-vinculo-tag { padding: 2px 6px; border-radius: 4px; font-size: .58rem; font-weight: 700; white-space: nowrap; }
         .mp-vinculo-ok { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
         .mp-vinculo-falta { background: #fef5e7; color: #b9770e; border: 1px solid #f5c273; }
@@ -192,6 +193,9 @@
                         </div>
                         <div class="tile" id="tile-TRANSFERENCIA" onclick="filtrarFormaPago('TRANSFERENCIA')" style="border-left: 4px solid #34495e;">
                             <span class="tile-number" id="count-tr">0</span><span class="tile-label">🏦 Transf.</span>
+                        </div>
+                        <div class="tile" id="tile-SINMETODO" onclick="filtrarFormaPago('SINMETODO')" style="border-left: 4px solid var(--rojo); display:none;">
+                            <span class="tile-number" id="count-sin" style="color:var(--rojo);">0</span><span class="tile-label">⚠️ Sin método</span>
                         </div>
                     </div>
 
@@ -1485,7 +1489,7 @@
 
         function actualizarEstadisticas() { 
             let t = 0, mpActivos = 0, mpCaidos = 0; 
-            let efTotal = 0, trTotal = 0;
+            let efTotal = 0, trTotal = 0, sinMetodo = 0;
             
             sociosData.forEach(s => { 
                 // Solo cuentan como ACTIVOS los que cumplen requisitos (estado 'dia' o 'cd').
@@ -1500,6 +1504,9 @@
                     efTotal++; 
                 } else if(s.formaPago && s.formaPago.startsWith('TRANSFERENCIA')) { 
                     trTotal++; 
+                } else {
+                    // Activo pero sin un método de pago reconocido (vacío o valor inesperado).
+                    sinMetodo++;
                 } 
             }); 
             
@@ -1507,6 +1514,10 @@
             document.getElementById('count-mp').innerText = mpActivos + (mpCaidos > 0 ? " (" + mpCaidos + " caídos)" : ""); 
             document.getElementById('count-ef').innerText = efTotal; 
             document.getElementById('count-tr').innerText = trTotal; 
+            let tileSin = document.getElementById('tile-SINMETODO');
+            document.getElementById('count-sin').innerText = sinMetodo;
+            // Solo mostramos el KPI si hay socios sin método (para no ocupar espacio si no aplica).
+            if(tileSin) tileSin.style.display = sinMetodo > 0 ? 'flex' : 'none';
         }
 
         function filtrarEstadoRapido(e, el) { filtroEstadoRapido = e; if(el) { document.querySelectorAll('.estado-filter').forEach(b => b.classList.remove('active')); el.classList.add('active'); } renderizarTodo(); }
@@ -1559,7 +1570,14 @@
                     let cumpleF = (filtroEstadoRapido === 'todos') || (s.estadoCalculado === filtroEstadoRapido);
                     if (filtroEstadoRapido === 'prospectos' && textoBusqueda === '') cumpleF = false; 
 
-                    let cumpleFP = filtroFPRapido === 'todos' ? true : (filtroFPRapido === 'MP' ? (s.formaPago === 'MP' || s.formaPago === 'MP_CAIDO') : (filtroFPRapido === 'EFECTIVO' ? s.formaPago === 'EFECTIVO' : s.formaPago.startsWith('TRANSFERENCIA')));
+                    let fp = s.formaPago || '';
+                    let cumpleFP;
+                    if(filtroFPRapido === 'todos') cumpleFP = true;
+                    else if(filtroFPRapido === 'MP') cumpleFP = (fp === 'MP' || fp === 'MP_CAIDO');
+                    else if(filtroFPRapido === 'EFECTIVO') cumpleFP = (fp === 'EFECTIVO');
+                    else if(filtroFPRapido === 'TRANSFERENCIA') cumpleFP = fp.startsWith('TRANSFERENCIA');
+                    else if(filtroFPRapido === 'SINMETODO') cumpleFP = !(fp === 'MP' || fp === 'MP_CAIDO' || fp === 'EFECTIVO' || fp.startsWith('TRANSFERENCIA'));
+                    else cumpleFP = true;
                     if (tipoVista === 'socio_individual' || tipoVista === 'inactivos') { cumpleF = true; cumpleFP = true; }
                     return cumpleVista && cumpleF && cumpleFP;
                 });
@@ -2388,7 +2406,11 @@
             if(s.formaPago === 'EFECTIVO') return `<span class='pago-tag-ef'>💵 Efectivo</span>`;
             if(s.formaPago === 'TRANSFERENCIA_MP') return `<span class='pago-tag-tr'>🏦 Transf. MP</span>`;
             if(s.formaPago === 'TRANSFERENCIA_C') return `<span class='pago-tag-credicoop'><span class='credicoop-text'>🏦 Transf. por Credicoop</span><span class='credicoop-stripe'></span></span>`;
-            return `<span class='pago-tag-tr'>🏦 Transf.</span>`;
+            if(s.formaPago && s.formaPago.startsWith('TRANSFERENCIA')) return `<span class='pago-tag-tr'>🏦 Transf.</span>`;
+            // Sin método reconocido: lo marcamos para que sea visible y editable.
+            let crudo = String(s.formaPago || '').trim();
+            let detalle = crudo ? ` (${crudo})` : ' (vacío)';
+            return `<span class='pago-tag-sinmetodo' title='Este socio no tiene un método de pago válido cargado. Valor actual: ${crudo || "vacío"}. Editá su ficha para asignarlo.'>⚠️ Sin método${detalle}</span>`;
         }
 
         function analizarTextoCSV(csvText, nombreArchivo, registrarHistorial = true) {
