@@ -74,6 +74,14 @@
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-sinmetodo { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 700; white-space: nowrap; }
+        .btn-reporte-general { width: 100%; padding: 10px; margin-bottom: 10px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: .8rem; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-reporte-general:hover { background: #1a252f; transform: translateY(-1px); }
+        .reporte-tema-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--borde); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
+        .reporte-tema-row:hover { background: #f8f9fa; border-color: var(--accent); }
+        .reporte-tema-row input[type=checkbox] { margin-top: 2px; width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+        .reporte-tema-row .rt-txt { display: flex; flex-direction: column; gap: 2px; }
+        .reporte-tema-row .rt-titulo { font-size: .82rem; font-weight: 700; color: var(--primary); }
+        .reporte-tema-row .rt-desc { font-size: .7rem; color: #7f8c8d; line-height: 1.3; }
         .tile.tile-info-utiles { grid-column: span 3; cursor: default; display: flex; flex-direction: row; align-items: stretch; justify-content: flex-start; gap: 0; padding: 0; overflow: hidden; position: relative; }
         .tile.tile-info-utiles:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .tile-info-utiles .info-util { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 14px 16px; border-left: 1px solid #eef1f4; min-width: 0; overflow: hidden; }
@@ -149,6 +157,7 @@
             </div>
             
             <div style="padding: 20px; font-size: 0.7rem; color: #95a5a6; border-top: 1px solid var(--borde);">
+                <button class="btn-reporte-general" onclick="abrirModalReporteGeneral()">📄 Reporte General</button>
                 <button class="btn-logout" onclick="cerrarSesion()">Salir del sistema</button>
                 <div style="margin-top: 10px;">Sistema Integrado v36.0 - Sanitizado 🛡️</div>
             </div>
@@ -461,6 +470,47 @@
             <div class="modal-buttons" style="margin-top: 30px;">
                 <button class="modal-btn btn-cancelar" onclick="cerrarModalNuevoSocio(null)">Cancelar</button>
                 <button class="modal-btn btn-confirmar" onclick="guardarFichaSocio()" style="background: var(--verde);">Guardar Ficha</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPORTE GENERAL -->
+    <div id="modalReporteGeneral" class="modal-overlay" onclick="cerrarModalReporteGeneral()">
+        <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 580px;">
+            <h3>📄 Generar Reporte General</h3>
+            <p style="margin-bottom:15px;">Elegí el período y los temas a incluir. El informe se descarga en PDF, ordenado y detallado para análisis de gestión (apto para lectura por IA).</p>
+
+            <div class="form-row">
+                <label class="form-label">Período (meses del año en curso)</label>
+                <div class="form-row flex-row" style="margin-bottom:0;">
+                    <div class="form-group"><label class="form-label" style="font-size:.65rem;">Desde</label><select id="repDesde" class="form-input"></select></div>
+                    <div class="form-group"><label class="form-label" style="font-size:.65rem;">Hasta</label><select id="repHasta" class="form-input"></select></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label class="form-label" style="margin-bottom:8px; display:block;">Temas a incluir</label>
+                <label class="reporte-tema-row">
+                    <input type="checkbox" id="repTemaSocios" checked>
+                    <span class="rt-txt"><span class="rt-titulo">👥 Socios</span><span class="rt-desc">Total y por método de pago, altas por mes, clases de prueba y conversiones a socio.</span></span>
+                </label>
+                <label class="reporte-tema-row">
+                    <input type="checkbox" id="repTemaContable" checked>
+                    <span class="rt-txt"><span class="rt-titulo">📈 Análisis contable</span><span class="rt-desc">Ingresos y egresos fijos y extraordinarios, rendimiento por taller (inscriptos, valor hora, cálculo).</span></span>
+                </label>
+                <label class="reporte-tema-row">
+                    <input type="checkbox" id="repTemaTalleres" checked>
+                    <span class="rt-txt"><span class="rt-titulo">🎨 Inscriptos a talleres</span><span class="rt-desc">Inscriptos activos por taller y detalle de participación.</span></span>
+                </label>
+                <label class="reporte-tema-row">
+                    <input type="checkbox" id="repTemaAlquileres" checked>
+                    <span class="rt-txt"><span class="rt-titulo">💼 Alquileres</span><span class="rt-desc">Alquileres del período (sección preparada para datos futuros).</span></span>
+                </label>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancelar" onclick="cerrarModalReporteGeneral()">Cancelar</button>
+                <button class="modal-btn btn-confirmar" onclick="generarReporteGeneral()">📄 Generar PDF</button>
             </div>
         </div>
     </div>
@@ -2750,6 +2800,435 @@
             guardarBovedaEnNube(true);
             cerrarModalInfoUtiles();
             renderInfoUtiles();
+        }
+
+        // ==========================================
+        // MÓDULO REPORTE GENERAL (PDF informe de gestión)
+        // ==========================================
+        function abrirModalReporteGeneral() {
+            let selDesde = document.getElementById('repDesde');
+            let selHasta = document.getElementById('repHasta');
+            if(selDesde && selHasta && selDesde.options.length === 0) {
+                mesesLista.forEach((m, i) => {
+                    selDesde.insertAdjacentHTML('beforeend', `<option value="${i}">${m}</option>`);
+                    selHasta.insertAdjacentHTML('beforeend', `<option value="${i}">${m}</option>`);
+                });
+            }
+            // Por defecto: desde el inicio del ciclo (Mar) hasta el mes actual.
+            if(selDesde && selHasta) {
+                selDesde.value = 2; // Marzo (inicio ciclo lectivo)
+                selHasta.value = Math.max(2, indiceMesActual);
+            }
+            document.getElementById('modalReporteGeneral').classList.add('open');
+        }
+        function cerrarModalReporteGeneral() { document.getElementById('modalReporteGeneral').classList.remove('open'); }
+
+        function fmtMoneda(n) { return '$ ' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
+
+        function generarReporteGeneral() {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                alert('No se puede generar el PDF ahora (librería no disponible). Verificá tu conexión e intentá de nuevo.');
+                return;
+            }
+            // Asegurar datos inicializados.
+            if(!datosContables) datosContables = inicializarDatosContables();
+            if(!datosEgresos) datosEgresos = inicializarDatosEgresos();
+            // Asegurar estados calculados (para contar activos / inscriptos).
+            actualizarEstadosGeneral();
+
+            let desdeIdx = parseInt(document.getElementById('repDesde').value, 10);
+            let hastaIdx = parseInt(document.getElementById('repHasta').value, 10);
+            if(isNaN(desdeIdx)) desdeIdx = 0;
+            if(isNaN(hastaIdx)) hastaIdx = 11;
+            if(hastaIdx < desdeIdx) { let tmp = desdeIdx; desdeIdx = hastaIdx; hastaIdx = tmp; }
+            let mesesPeriodo = mesesLista.slice(desdeIdx, hastaIdx + 1);
+            let anio = new Date().getFullYear();
+
+            let incluir = {
+                socios: document.getElementById('repTemaSocios').checked,
+                contable: document.getElementById('repTemaContable').checked,
+                talleres: document.getElementById('repTemaTalleres').checked,
+                alquileres: document.getElementById('repTemaAlquileres').checked
+            };
+            if(!incluir.socios && !incluir.contable && !incluir.talleres && !incluir.alquileres) {
+                alert('Elegí al menos un tema para incluir en el reporte.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+            const anchoPag = doc.internal.pageSize.getWidth();
+            const margen = 40;
+            let y = margen;
+
+            // ---- Helpers de layout ----
+            function nuevaPaginaSiHaceFalta(alturaNecesaria) {
+                if(y + alturaNecesaria > doc.internal.pageSize.getHeight() - margen) {
+                    doc.addPage();
+                    y = margen;
+                }
+            }
+            function tituloSeccion(txt) {
+                nuevaPaginaSiHaceFalta(50);
+                doc.setFillColor(44, 62, 80);
+                doc.rect(margen, y, anchoPag - margen * 2, 22, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text(txt, margen + 8, y + 15);
+                doc.setTextColor(40, 40, 40);
+                doc.setFont(undefined, 'normal');
+                y += 32;
+            }
+            function subtitulo(txt) {
+                nuevaPaginaSiHaceFalta(28);
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(44, 62, 80);
+                doc.text(txt, margen, y);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(40, 40, 40);
+                y += 14;
+            }
+            function parrafo(txt) {
+                doc.setFontSize(8.5);
+                doc.setTextColor(80, 80, 80);
+                let lineas = doc.splitTextToSize(txt, anchoPag - margen * 2);
+                nuevaPaginaSiHaceFalta(lineas.length * 11 + 4);
+                doc.text(lineas, margen, y);
+                y += lineas.length * 11 + 4;
+                doc.setTextColor(40, 40, 40);
+            }
+            function tabla(head, body) {
+                doc.autoTable({
+                    head: [head], body: body, startY: y,
+                    theme: 'grid',
+                    styles: { fontSize: 7.5, cellPadding: 3, overflow: 'linebreak' },
+                    headStyles: { fillColor: [52, 73, 94], textColor: 255, fontSize: 7.5 },
+                    margin: { left: margen, right: margen }
+                });
+                y = doc.lastAutoTable.finalY + 16;
+            }
+
+            // ---- Encabezado del informe ----
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(44, 62, 80);
+            doc.text('Centro Cultural CEPAS', margen, y + 6);
+            y += 26;
+            doc.setFontSize(13);
+            doc.text('Informe General de Gestión', margen, y);
+            y += 20;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(90, 90, 90);
+            doc.text(`Período analizado: ${mesesPeriodo[0]} a ${mesesPeriodo[mesesPeriodo.length-1]} de ${anio}`, margen, y);
+            y += 13;
+            doc.text(`Generado: ${new Date().toLocaleString('es-AR')}`, margen, y);
+            y += 13;
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            let introLineas = doc.splitTextToSize('Este informe reúne indicadores de socios, finanzas, talleres y alquileres del período seleccionado. Está estructurado para facilitar su lectura por una inteligencia artificial que pueda detectar puntos fuertes y débiles de la gestión, oportunidades de mejora y aspectos a potenciar.', anchoPag - margen * 2);
+            doc.text(introLineas, margen, y);
+            y += introLineas.length * 10 + 10;
+            doc.setTextColor(40, 40, 40);
+
+            // ---- Secciones ----
+            if(incluir.socios) reporteSeccionSocios(doc, { tituloSeccion, subtitulo, parrafo, tabla }, mesesPeriodo, desdeIdx, hastaIdx, anio);
+            if(incluir.contable) reporteSeccionContable(doc, { tituloSeccion, subtitulo, parrafo, tabla }, mesesPeriodo);
+            if(incluir.talleres) reporteSeccionTalleres(doc, { tituloSeccion, subtitulo, parrafo, tabla });
+            if(incluir.alquileres) reporteSeccionAlquileres(doc, { tituloSeccion, subtitulo, parrafo, tabla }, desdeIdx, hastaIdx, anio);
+
+            // ---- Pie de página con numeración ----
+            let totalPaginas = doc.internal.getNumberOfPages();
+            for(let p = 1; p <= totalPaginas; p++) {
+                doc.setPage(p);
+                doc.setFontSize(7);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`CEPAS · Informe de Gestión · Página ${p} de ${totalPaginas}`, margen, doc.internal.pageSize.getHeight() - 20);
+            }
+
+            let nombre = `CEPAS_Reporte_General_${anio}_${mesesPeriodo[0]}-${mesesPeriodo[mesesPeriodo.length-1]}.pdf`;
+            doc.save(nombre);
+            cerrarModalReporteGeneral();
+        }
+
+        // ---- SECCIÓN SOCIOS ----
+        function reporteSeccionSocios(doc, h, mesesPeriodo, desdeIdx, hastaIdx, anio) {
+            h.tituloSeccion('1. SOCIOS');
+
+            // Clasificación por método de pago (solo activos).
+            let activos = sociosData.filter(s => s.estadoCalculado !== 'inactivo');
+            let inactivos = sociosData.filter(s => s.estadoCalculado === 'inactivo');
+            let porMetodo = { MP: 0, MP_CAIDO: 0, EFECTIVO: 0, TRANSFERENCIA: 0, SIN_METODO: 0 };
+            activos.forEach(s => {
+                let fp = s.formaPago || '';
+                if(fp === 'MP') porMetodo.MP++;
+                else if(fp === 'MP_CAIDO') porMetodo.MP_CAIDO++;
+                else if(fp === 'EFECTIVO') porMetodo.EFECTIVO++;
+                else if(fp.startsWith('TRANSFERENCIA')) porMetodo.TRANSFERENCIA++;
+                else porMetodo.SIN_METODO++;
+            });
+            let cd = activos.filter(s => s.estadoCalculado === 'cd').length;
+
+            h.subtitulo('1.1 Resumen general');
+            h.parrafo(`Total de socios en el padrón: ${sociosData.length}. Activos: ${activos.length}. Inactivos: ${inactivos.length}. De los activos, ${cd} son miembros de Comisión Directiva (exentos de cuota).`);
+            h.tabla(
+                ['Indicador', 'Cantidad'],
+                [
+                    ['Socios activos (total)', String(activos.length)],
+                    ['  · Mercado Pago', String(porMetodo.MP)],
+                    ['  · Mercado Pago (caído)', String(porMetodo.MP_CAIDO)],
+                    ['  · Efectivo', String(porMetodo.EFECTIVO)],
+                    ['  · Transferencia', String(porMetodo.TRANSFERENCIA)],
+                    ['  · Sin método asignado', String(porMetodo.SIN_METODO)],
+                    ['Comisión Directiva (exentos)', String(cd)],
+                    ['Socios inactivos', String(inactivos.length)],
+                    ['Padrón total', String(sociosData.length)]
+                ]
+            );
+
+            // Altas por mes (según fechaCreacionStr) dentro del período y año en curso.
+            h.subtitulo('1.2 Altas de socios por mes (período seleccionado)');
+            let altasPorMes = {}; mesesPeriodo.forEach(m => altasPorMes[m] = 0);
+            let totalAltasPeriodo = 0;
+            sociosData.forEach(s => {
+                if(!s.fechaCreacionStr || s.fechaCreacionStr.indexOf('/') === -1) return;
+                let partes = s.fechaCreacionStr.split('/');
+                let mesNum = parseInt(partes[1], 10);
+                let anioAlta = parseInt(partes[2], 10);
+                if(isNaN(mesNum) || anioAlta !== anio) return;
+                let idxMes = mesNum - 1;
+                if(idxMes >= desdeIdx && idxMes <= hastaIdx) {
+                    let etiqueta = mesesLista[idxMes];
+                    altasPorMes[etiqueta] = (altasPorMes[etiqueta] || 0) + 1;
+                    totalAltasPeriodo++;
+                }
+            });
+            h.tabla(
+                ['Mes', 'Altas'],
+                mesesPeriodo.map(m => [m, String(altasPorMes[m] || 0)]).concat([['TOTAL período', String(totalAltasPeriodo)]])
+            );
+            h.parrafo(`En el período se registraron ${totalAltasPeriodo} altas de socios. Nota: se consideran altas del año ${anio} según la fecha de alta cargada en cada ficha.`);
+
+            // Clases de prueba y conversiones.
+            h.subtitulo('1.3 Clases de prueba y conversión a socio');
+            let pruebas = Array.isArray(datosPruebas) ? datosPruebas : [];
+            let totalPruebas = pruebas.length;
+            let pruebasArchivadas = pruebas.filter(p => p.estado === 'archivado');
+            let pruebasPendientes = pruebas.filter(p => p.estado === 'pendiente');
+            // Conversión: una prueba se considera "convertida" si existe un socio que matchea por nombre.
+            let convertidas = [];
+            pruebas.forEach(p => {
+                let socioMatch = sociosData.find(s => mismaPersonaPorNombre(p.nombre || '', s.nombre || ''));
+                if(socioMatch) convertidas.push({ prueba: p, socio: socioMatch });
+            });
+            let tasaConv = totalPruebas > 0 ? Math.round((convertidas.length / totalPruebas) * 100) : 0;
+            h.parrafo(`Se registraron ${totalPruebas} clases de prueba en total (${pruebasPendientes.length} pendientes, ${pruebasArchivadas.length} archivadas). De ellas, ${convertidas.length} corresponden a personas que figuran como socios actuales (match por nombre y apellido), lo que representa una tasa de conversión aproximada del ${tasaConv}%.`);
+            if(convertidas.length > 0) {
+                h.tabla(
+                    ['Prueba (nombre)', 'Taller probado', 'Socio asociado (#)', 'Método pago socio'],
+                    convertidas.map(c => [
+                        c.prueba.nombre || '-',
+                        c.prueba.taller || '-',
+                        `#${c.socio.id} ${c.socio.nombre}`,
+                        metodoPagoLegible(c.socio.formaPago)
+                    ])
+                );
+            }
+            if(pruebasPendientes.length > 0) {
+                h.subtitulo('1.4 Clases de prueba pendientes de seguimiento');
+                h.tabla(
+                    ['Nombre', 'Taller', 'Fecha', 'Teléfono'],
+                    pruebasPendientes.map(p => [p.nombre || '-', p.taller || '-', p.fecha || '-', p.telefono || '-'])
+                );
+            }
+        }
+
+        // ---- SECCIÓN ANÁLISIS CONTABLE ----
+        function reporteSeccionContable(doc, h, mesesPeriodo) {
+            h.tituloSeccion('2. ANÁLISIS CONTABLE');
+
+            // Solo se calculan montos de talleres sobre los meses del ciclo lectivo (Mar..Dic)
+            // que estén dentro del período elegido.
+            let mesesCont = mesesPeriodo.filter(m => mesesContables.includes(m));
+
+            // 2.1 Ingresos por cuotas sociales.
+            h.subtitulo('2.1 Ingresos por cuotas sociales (período)');
+            let cuotas = calcularTotalesCuotas();
+            let totCuotasPeriodo = 0;
+            let filasCuotas = [];
+            ['MP', 'EF', 'TR'].forEach(fp => {
+                let sub = 0;
+                mesesPeriodo.forEach(m => { sub += (cuotas[fp].meses[m] || 0); });
+                totCuotasPeriodo += sub;
+                let etiqueta = fp === 'MP' ? 'Mercado Pago' : fp === 'EF' ? 'Efectivo' : 'Transferencia';
+                filasCuotas.push([etiqueta, `(neto $${cuotas[fp].neto}/cuota)`, fmtMoneda(sub)]);
+            });
+            filasCuotas.push(['TOTAL CUOTAS', '', fmtMoneda(totCuotasPeriodo)]);
+            h.tabla(['Método', 'Detalle', 'Ingreso período'], filasCuotas);
+
+            // 2.2 Ingresos por talleres (montos cargados).
+            h.subtitulo('2.2 Ingresos por talleres (período)');
+            let totTalleresPeriodo = 0;
+            let filasIngTall = [];
+            listaTalleres.forEach(t => {
+                let sub = 0;
+                mesesCont.forEach(m => { sub += (datosContables[t] && datosContables[t][m] ? datosContables[t][m] : 0); });
+                if(sub > 0) { filasIngTall.push([t, fmtMoneda(sub)]); totTalleresPeriodo += sub; }
+            });
+            if(filasIngTall.length === 0) filasIngTall.push(['(sin ingresos de talleres cargados en el período)', fmtMoneda(0)]);
+            filasIngTall.push(['TOTAL TALLERES', fmtMoneda(totTalleresPeriodo)]);
+            h.tabla(['Taller', 'Ingreso período'], filasIngTall);
+
+            // 2.3 Egresos fijos.
+            h.subtitulo('2.3 Egresos fijos (período)');
+            let totEgresos = 0;
+            let filasEgr = [];
+            listaEgresos.forEach(eg => {
+                let sub = 0;
+                mesesPeriodo.forEach(m => { sub += (datosEgresos[eg] && datosEgresos[eg][m] ? datosEgresos[eg][m] : 0); });
+                filasEgr.push([eg, fmtMoneda(sub)]);
+                totEgresos += sub;
+            });
+            filasEgr.push(['TOTAL EGRESOS FIJOS', fmtMoneda(totEgresos)]);
+            h.tabla(['Egreso', 'Monto período'], filasEgr);
+
+            // 2.4 Otros ingresos/egresos (fijos adicionales + extraordinarios desde _EXTRAS_).
+            h.subtitulo('2.4 Otros ingresos y egresos (extraordinarios y fijos adicionales)');
+            let extras = datosContables["_EXTRAS_"];
+            let otrosIng = 0, otrosEgr = 0;
+            let filasExtras = [];
+            if(extras) {
+                // Fijos adicionales (valoresFijos por mes).
+                (extras.fijos || []).forEach(f => {
+                    let sub = 0;
+                    mesesPeriodo.forEach(m => { sub += (extras.valoresFijos && extras.valoresFijos[f.id] && extras.valoresFijos[f.id][m] ? extras.valoresFijos[f.id][m] : 0); });
+                    if(sub !== 0) {
+                        filasExtras.push([f.desc || '(fijo)', f.tipo === 'ingreso' ? 'Ingreso fijo' : 'Egreso fijo', fmtMoneda(sub)]);
+                        if(f.tipo === 'ingreso') otrosIng += sub; else otrosEgr += sub;
+                    }
+                });
+                // Extraordinarios por mes.
+                mesesPeriodo.forEach(m => {
+                    let lista = (extras.extraordinarios && extras.extraordinarios[m]) ? extras.extraordinarios[m] : [];
+                    lista.forEach(ex => {
+                        filasExtras.push([`${ex.desc || '(extra)'} (${m})`, ex.tipo === 'ingreso' ? 'Ingreso extra.' : 'Egreso extra.', fmtMoneda(ex.monto)]);
+                        if(ex.tipo === 'ingreso') otrosIng += (ex.monto || 0); else otrosEgr += (ex.monto || 0);
+                    });
+                });
+            }
+            if(filasExtras.length === 0) filasExtras.push(['(sin movimientos extraordinarios en el período)', '', fmtMoneda(0)]);
+            filasExtras.push(['TOTAL OTROS INGRESOS', '', fmtMoneda(otrosIng)]);
+            filasExtras.push(['TOTAL OTROS EGRESOS', '', fmtMoneda(otrosEgr)]);
+            h.tabla(['Concepto', 'Tipo', 'Monto'], filasExtras);
+
+            // 2.5 Resultado neto del período.
+            h.subtitulo('2.5 Resultado neto del período');
+            let ingresosTotales = totCuotasPeriodo + totTalleresPeriodo + otrosIng;
+            let egresosTotales = totEgresos + otrosEgr;
+            let neto = ingresosTotales - egresosTotales;
+            h.tabla(
+                ['Concepto', 'Monto'],
+                [
+                    ['Ingresos totales (cuotas + talleres + otros)', fmtMoneda(ingresosTotales)],
+                    ['Egresos totales (fijos + otros)', fmtMoneda(egresosTotales)],
+                    ['RESULTADO NETO', (neto >= 0 ? '+' : '') + fmtMoneda(neto)]
+                ]
+            );
+            h.parrafo(`El resultado neto del período es de ${fmtMoneda(neto)} (${neto >= 0 ? 'superávit' : 'déficit'}). Ingresos: ${fmtMoneda(ingresosTotales)} · Egresos: ${fmtMoneda(egresosTotales)}.`);
+
+            // 2.6 Rendimiento por taller (inscriptos, valor hora, costo, balance).
+            h.subtitulo('2.6 Rendimiento por taller (cálculo de costos de espacio)');
+            let inscriptosActivos = {}; listaTalleres.forEach(t => inscriptosActivos[t] = 0);
+            sociosData.forEach(s => { if(s.estadoCalculado !== 'inactivo') s.talleres.forEach(t => { if(inscriptosActivos[t] !== undefined) inscriptosActivos[t]++; }); });
+            let precioSalon = (datosContables["_GLOBAL_"] && datosContables["_GLOBAL_"].precioSalon) || 0;
+            let precioSala = (datosContables["_GLOBAL_"] && datosContables["_GLOBAL_"].precioSala) || 0;
+            h.parrafo(`Valores de referencia: hora de Salón ${fmtMoneda(precioSalon)} · hora de Sala de talleres ${fmtMoneda(precioSala)}. Costo mensual estimado = horas semanales × 4 × valor hora del espacio. Balance = ingreso mensual promedio − costo mensual.`);
+            let filasRend = [];
+            listaTalleres.forEach(t => {
+                let d = datosContables[t] || {};
+                let cant = inscriptosActivos[t] || 0;
+                let totalT = 0, mesesD = 0;
+                mesesCont.forEach(m => { let v = d[m] || 0; totalT += v; if(v > 0) mesesD++; });
+                let prom = mesesD > 0 ? Math.round(totalT / mesesD) : 0;
+                let esp = d.espacio || 'Ninguno';
+                let hs = d.horas || 0;
+                let pH = esp === 'Salon' ? precioSalon : (esp === 'Sala' ? precioSala : 0);
+                let costoMensual = hs * 4 * pH;
+                let balance = prom - costoMensual;
+                let gpp = cant > 0 ? Math.round(prom / cant) : 0;
+                filasRend.push([
+                    t, String(cant), esp, String(hs),
+                    fmtMoneda(prom), fmtMoneda(costoMensual),
+                    (balance >= 0 ? '+' : '') + fmtMoneda(balance),
+                    fmtMoneda(gpp)
+                ]);
+            });
+            h.tabla(
+                ['Taller', 'Inscr.', 'Espacio', 'Hs/sem', 'Ingreso prom.', 'Costo mens.', 'Balance', 'Ing./persona'],
+                filasRend
+            );
+        }
+
+        // ---- SECCIÓN INSCRIPTOS A TALLERES ----
+        function reporteSeccionTalleres(doc, h) {
+            h.tituloSeccion('3. INSCRIPTOS A TALLERES');
+
+            let inscriptos = {}; listaTalleres.forEach(t => inscriptos[t] = []);
+            sociosData.forEach(s => {
+                if(s.estadoCalculado === 'inactivo') return;
+                s.talleres.forEach(t => { if(inscriptos[t]) inscriptos[t].push(s); });
+            });
+
+            let totalInscripciones = 0;
+            let filasResumen = [];
+            listaTalleres.forEach(t => {
+                let n = inscriptos[t].length;
+                totalInscripciones += n;
+                let docentes = sociosData.filter(s => (s.profesorDe || []).some(p => p.toUpperCase().includes(t.toUpperCase()) || t.toUpperCase().includes(p.toUpperCase())));
+                let nombresDoc = docentes.map(d => d.nombre).join(', ') || '-';
+                filasResumen.push([t, String(n), nombresDoc]);
+            });
+            h.subtitulo('3.1 Inscriptos activos por taller');
+            h.parrafo(`Se contabilizan las inscripciones de socios activos. Un socio puede estar inscripto en más de un taller. Total de inscripciones activas (suma por taller): ${totalInscripciones}.`);
+            h.tabla(['Taller', 'Inscriptos activos', 'Docente/s a cargo'], filasResumen);
+
+            // Nota metodológica sobre altas/bajas.
+            h.parrafo('Nota: el sistema no mantiene un histórico estructurado de altas y bajas de inscriptos por taller. Los números reflejan la foto actual de inscriptos activos. Para un seguimiento de altas/bajas en el tiempo convendría registrar esos eventos en el futuro.');
+        }
+
+        // ---- SECCIÓN ALQUILERES ----
+        function reporteSeccionAlquileres(doc, h, desdeIdx, hastaIdx, anio) {
+            h.tituloSeccion('4. ALQUILERES');
+            let alquileres = (datosContables && Array.isArray(datosContables["_ALQUILERES_"])) ? datosContables["_ALQUILERES_"] : [];
+
+            // Filtrar por período (según fecha de inicio del evento, dentro del año y rango de meses).
+            let delPeriodo = alquileres.filter(a => {
+                let f = a.start ? new Date(a.start) : null;
+                if(!f || isNaN(f.getTime())) return false;
+                return f.getFullYear() === anio && f.getMonth() >= desdeIdx && f.getMonth() <= hastaIdx;
+            });
+
+            if(delPeriodo.length === 0) {
+                h.parrafo('No hay alquileres registrados en el período seleccionado. Esta sección queda preparada para cuando se carguen los alquileres: incluirá fecha, responsables, servicios incluidos (valija, audio, limpieza) y el total facturado por cada evento, junto con el ingreso total del período.');
+                return;
+            }
+
+            let totalPeriodo = 0;
+            let filas = delPeriodo.map(a => {
+                let f = new Date(a.start);
+                let fechaStr = `${String(f.getDate()).padStart(2,'0')}/${String(f.getMonth()+1).padStart(2,'0')}/${f.getFullYear()}`;
+                let total = Number(a.total) || 0;
+                totalPeriodo += total;
+                let resp = [a.r1Nombre, a.r2Nombre].filter(x => x).join(' / ') || '-';
+                let servicios = [a.incValija ? 'Valija' : '', a.incAudio ? 'Audio' : '', a.incLimpieza ? 'Limpieza' : ''].filter(x => x).join(', ') || 'Ninguno';
+                return [fechaStr, (a.title || '-'), resp, servicios, fmtMoneda(total)];
+            });
+            filas.push(['TOTAL PERÍODO', '', '', '', fmtMoneda(totalPeriodo)]);
+            h.subtitulo('4.1 Alquileres del período');
+            h.parrafo(`Se registraron ${delPeriodo.length} alquileres en el período, con un ingreso total de ${fmtMoneda(totalPeriodo)}.`);
+            h.tabla(['Fecha', 'Detalle', 'Responsable/s', 'Servicios', 'Total'], filas);
         }
 
         function escaparHTMLTexto(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
