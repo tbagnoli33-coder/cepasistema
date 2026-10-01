@@ -2427,6 +2427,9 @@
                 let lName = row[idxLastName] || '';
                 let fullName = (fName + " " + lName).trim().toUpperCase();
                 let payerId = idxPayerId !== -1 ? String(row[idxPayerId] || '').trim() : '';
+                // MP enmascara el nombre (con asteriscos) solo en suscripciones canceladas.
+                // Esas filas no sirven para matchear y solo aportan ruido: se descartan.
+                if(fName.indexOf('*') !== -1 || lName.indexOf('*') !== -1) continue;
                 if(!fullName && !payerId) continue;
                 let key = payerId ? ('pid:' + payerId) : ('nm:' + normalizarNombre(fullName));
                 if(!gruposMP[key]) gruposMP[key] = { nombre: fullName, payerId: payerId, filas: [] };
