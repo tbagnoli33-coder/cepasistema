@@ -73,6 +73,8 @@
         .pago-tag-mp-mensual { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .tile.tile-fijo { cursor: default; }
+        .tile.tile-fijo:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .btn-micro.btn-micro-sugerido { color: #fff; background: #e67e22; border: 1px solid #d35400; animation: pulsoSugerido 1.8s ease-in-out infinite; }
         .btn-micro.btn-micro-sugerido:hover { background: #d35400; }
         @keyframes pulsoSugerido { 0%,100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.5); } 50% { box-shadow: 0 0 0 4px rgba(230,126,34,0); } }
@@ -178,17 +180,17 @@
             <div class="content-body">
                 <div id="header-tabla-normal">
                     <div class="tiles-grid">
-                        <div class="tile active-filter" id="tile-todos" onclick="filtrarFormaPago('todos')" style="border-left: 4px solid var(--primary);">
+                        <div class="tile tile-fijo" id="tile-todos" style="border-left: 4px solid var(--primary);">
                             <span class="tile-number" id="count-total">0</span><span class="tile-label">Activos</span>
                         </div>
-                        <div class="tile" id="tile-MP" onclick="filtrarFormaPago('MP')" style="border-left: 4px solid var(--accent);">
+                        <div class="tile tile-fijo" id="tile-MP" style="border-left: 4px solid var(--accent);">
                             <span class="tile-number" id="count-mp">0</span><span class="tile-label">💳 M. Pago</span>
                         </div>
-                        <div class="tile" id="tile-EFECTIVO" onclick="filtrarFormaPago('EFECTIVO')" style="border-left: 4px solid #f1c40f;">
-                            <span class="tile-number" id="count-ef">0</span><span class="tile-label">💵 Efectivo<br><span style="font-size: 0.6rem; color: var(--naranja); font-weight: 700;">PEND: <b id="count-ef-pend">0</b></span> | <span style="font-size: 0.6rem; color: var(--rojo); font-weight: 700;">MORA: <b id="count-ef-mora">0</b></span></span>
+                        <div class="tile tile-fijo" id="tile-EFECTIVO" style="border-left: 4px solid #f1c40f;">
+                            <span class="tile-number" id="count-ef">0</span><span class="tile-label">💵 Efectivo</span>
                         </div>
-                        <div class="tile" id="tile-TRANSFERENCIA" onclick="filtrarFormaPago('TRANSFERENCIA')" style="border-left: 4px solid #34495e;">
-                            <span class="tile-number" id="count-tr">0</span><span class="tile-label">🏦 Transf.<br><span style="font-size: 0.6rem; color: var(--naranja); font-weight: 700;">PEND: <b id="count-tr-pend">0</b></span> | <span style="font-size: 0.6rem; color: var(--rojo); font-weight: 700;">MORA: <b id="count-tr-mora">0</b></span></span>
+                        <div class="tile tile-fijo" id="tile-TRANSFERENCIA" style="border-left: 4px solid #34495e;">
+                            <span class="tile-number" id="count-tr">0</span><span class="tile-label">🏦 Transf.</span>
                         </div>
                     </div>
 
@@ -208,10 +210,7 @@
                                 </select>
                             </div>
                             <div class="filter-buttons">
-                                <button class="btn-filter estado-filter active" onclick="filtrarEstadoRapido('todos', this)">Activos (Todos)</button>
-                                <button class="btn-filter estado-filter" onclick="filtrarEstadoRapido('dia', this)">Al Día</button>
-                                <button class="btn-filter estado-filter" onclick="filtrarEstadoRapido('pendiente', this)">Pendientes</button>
-                                <button class="btn-filter estado-filter" onclick="filtrarEstadoRapido('mora', this)">En Mora</button>
+                                <button class="btn-filter estado-filter active" onclick="filtrarEstadoRapido('todos', this)">Activos</button>
                                 <button class="btn-filter estado-filter" onclick="filtrarEstadoRapido('inactivo', this)" style="border-color:#95a5a6; color:#7f8c8d;">Inactivos</button>
                                 <button class="btn-filter estado-filter btn-prospectos" onclick="filtrarEstadoRapido('prospectos', this)">Clase de Prueba</button>
                             </div>
@@ -1421,8 +1420,7 @@
                 // Si el usuario reactivó manualmente, el socio permanece activo
                 // aunque su cuota esté atrasada. 'dia' si pagó el mes actual, si no 'pendiente'.
                 if(s.reactivadoManual) {
-                    let pagoMesActual = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
-                    s.estadoCalculado = pagoMesActual ? 'dia' : 'pendiente';
+                    s.estadoCalculado = 'dia';
                     return;
                 }
 
@@ -1472,12 +1470,12 @@
                     (mesesPagos[0] === mesesLista[indiceMesActual] || (idxMesAnterior >= 0 && mesesPagos[0] === mesesLista[idxMesAnterior]));
 
                 if(ultimosPagos || unicoPagoReciente) {
-                    // Cumple requisito de actividad. ¿Tiene algo viejo impago? => pendiente, si no => día.
-                    let hayViejoImpago = mesesVencidos.some(m => !(s.pagos[m] && s.pagos[m] !== ""));
-                    s.estadoCalculado = hayViejoImpago ? 'pendiente' : 'dia';
+                    // Cumple requisito de actividad => activo "al día".
+                    s.estadoCalculado = 'dia';
                 } else {
-                    // No cumple: se SUGIERE inactivar (no se inactiva solo). Queda en 'mora'.
-                    s.estadoCalculado = 'mora';
+                    // No cumple requisitos => inactivo (calculado, NO persiste en backend).
+                    // El flag inactivoManual sigue intacto; si el socio paga, vuelve a activo solo.
+                    s.estadoCalculado = 'inactivo';
                     s.sugerirInactivar = true;
                 }
             });
@@ -1485,10 +1483,11 @@
 
         function actualizarEstadisticas() { 
             let t = 0, mpActivos = 0, mpCaidos = 0; 
-            let efTotal = 0, efPend = 0, efMora = 0;
-            let trTotal = 0, trPend = 0, trMora = 0;
+            let efTotal = 0, trTotal = 0;
             
             sociosData.forEach(s => { 
+                // Solo cuentan como ACTIVOS los que cumplen requisitos (estado 'dia' o 'cd').
+                // Inactivos (manual o por no cumplir) quedan fuera del conteo.
                 if(s.estadoCalculado === 'inactivo') return; 
                 t++; 
                 if(s.formaPago === 'MP') {
@@ -1497,24 +1496,15 @@
                     mpCaidos++;
                 } else if(s.formaPago === 'EFECTIVO') { 
                     efTotal++; 
-                    if(s.estadoCalculado === 'pendiente') efPend++;
-                    else if(s.estadoCalculado === 'mora') efMora++;
                 } else if(s.formaPago && s.formaPago.startsWith('TRANSFERENCIA')) { 
                     trTotal++; 
-                    if(s.estadoCalculado === 'pendiente') trPend++;
-                    else if(s.estadoCalculado === 'mora') trMora++;
                 } 
             }); 
             
             document.getElementById('count-total').innerText = t; 
             document.getElementById('count-mp').innerText = mpActivos + (mpCaidos > 0 ? " (" + mpCaidos + " caídos)" : ""); 
             document.getElementById('count-ef').innerText = efTotal; 
-            document.getElementById('count-ef-pend').innerText = efPend;
-            document.getElementById('count-ef-mora').innerText = efMora;
-
             document.getElementById('count-tr').innerText = trTotal; 
-            document.getElementById('count-tr-pend').innerText = trPend;
-            document.getElementById('count-tr-mora').innerText = trMora;
         }
 
         function filtrarEstadoRapido(e, el) { filtroEstadoRapido = e; if(el) { document.querySelectorAll('.estado-filter').forEach(b => b.classList.remove('active')); el.classList.add('active'); } renderizarTodo(); }
@@ -1630,9 +1620,7 @@
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
 
                 let estaInactivoCard = (s.inactivoManual || s.estadoCalculado === 'inactivo');
-                let btnInactLabel = estaInactivoCard ? 'Reactivar' : (s.sugerirInactivar ? '⚠️ Inactivar (sugerido)' : 'Inactivar');
-                let btnInactClase = estaInactivoCard ? 'btn-micro-green' : (s.sugerirInactivar ? 'btn-micro-sugerido' : 'btn-micro-red');
-                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${btnInactClase}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${btnInactLabel}</button>` : '';
+                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${estaInactivoCard ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${estaInactivoCard ? 'Reactivar' : 'Inactivar'}</button>` : '';
                 let accionesDevExtra = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR') ? `
                         <button class='btn-micro btn-micro-blue' onclick='abrirModalAsignarProfe(${s.id})'>PROFESOR/A</button>
                         <button class='btn-micro' style='color:#c0392b; border: 1px solid #c0392b;' onclick='solicitarEliminarSocio(${s.id}); event.stopPropagation();'>🗑️ ELIMINAR</button>` : '';
@@ -1650,8 +1638,8 @@
                     contenidoDerecho = `<div class='meses-grid' onclick='event.stopPropagation()'>${mesesHtml}</div>${adminHtml}`;
                 }
 
-                let labelEst = s.estadoCalculado === 'cd' ? 'EXENTO' : s.estadoCalculado.toUpperCase();
-                let colorEst = s.estadoCalculado === 'cd' ? '#95a5a6' : (s.estadoCalculado === 'dia' ? 'var(--verde)' : (s.estadoCalculado === 'inactivo' ? '#7f8c8d' : (s.estadoCalculado === 'pendiente' ? 'var(--naranja)' : 'var(--rojo)')));
+                let labelEst = s.estadoCalculado === 'cd' ? 'EXENTO' : (s.estadoCalculado === 'inactivo' ? 'INACTIVO' : 'AL DÍA');
+                let colorEst = s.estadoCalculado === 'cd' ? '#95a5a6' : (s.estadoCalculado === 'inactivo' ? '#7f8c8d' : 'var(--verde)');
 
                 let valDom = s.domicilio !== "No registrado" ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.domicilio)}" target="_blank" style="color:var(--accent); text-decoration:none;">${s.domicilio} 📍</a>` : s.domicilio;
                 let cleanPhone = s.telefono.replace(/\D/g, ''); if(cleanPhone.length === 10 && cleanPhone.startsWith('11')) cleanPhone = '549' + cleanPhone;
@@ -1875,7 +1863,7 @@
             }
         }
 
-        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); if(!s) return; let estabaInactivo = (s.inactivoManual || s.estadoCalculado === 'inactivo'); if(estabaInactivo) { if(!confirm(`¿Reactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = false; s.reactivadoManual = false; } else { if(!confirm(`¿Inactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
+        function solicitarInactivacion(id) { let s = sociosData.find(x => x.id === id); if(!s) return; let estabaInactivo = (s.inactivoManual || s.estadoCalculado === 'inactivo'); if(estabaInactivo) { if(!confirm(`¿Reactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = false; s.reactivadoManual = true; } else { if(!confirm(`¿Inactivar a ${s.nombre} (socio #${s.id})?`)) return; s.inactivoManual = true; s.reactivadoManual = false; } renderizarTodo(); guardarSocioEnNube(s, "actualizar"); }
         function solicitarEliminarSocio(id) { if(confirm("¿Seguro de eliminar permanentemente?")) { sociosData = sociosData.filter(s => s.id !== id); renderizarTodo(); fetch(SCRIPT_URL + "?action=eliminar", { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ID: id }) }); } }
         function esComisionDirectiva(socio) { return !!(socio && socio.esCD); }
 
