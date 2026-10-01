@@ -1558,10 +1558,14 @@
                 // Sin meses vencidos aún (alta en el mes actual) => activo al día.
                 if(mesesVencidos.length === 0) { s.estadoCalculado = 'dia'; return; }
 
-                // Los 2 meses vencidos más recientes deben estar pagos (o el único que haya).
+                // Regla: el socio sigue activo si pagó AL MENOS UNO de los 2 meses vencidos
+                // más recientes. Solo cae en inactivo si no pagó NINGUNO de esos dos.
+                // El mes en curso nunca se exige (tiene todo el mes para ponerse al día).
+                // Ej. (hoy octubre): vencidos recientes = Ago y Sep. Con Ago pago => activo,
+                // aunque no haya pagado Sep. Recién en noviembre se evaluarían Sep y Oct.
                 let cantAChequear = Math.min(2, mesesVencidos.length);
                 let ultimosVencidos = mesesVencidos.slice(mesesVencidos.length - cantAChequear);
-                let ultimosPagos = ultimosVencidos.every(m => s.pagos[m] && s.pagos[m] !== "");
+                let ultimosPagos = ultimosVencidos.some(m => s.pagos[m] && s.pagos[m] !== "");
 
                 // Red de seguridad para ALTAS RECIENTES: si tiene exactamente un mes pago
                 // y ese pago es reciente (mes actual o el inmediato anterior), se considera
