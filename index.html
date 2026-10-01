@@ -73,6 +73,9 @@
         .pago-tag-mp-mensual { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
+        .btn-micro.btn-micro-sugerido { color: #fff; background: #e67e22; border: 1px solid #d35400; animation: pulsoSugerido 1.8s ease-in-out infinite; }
+        .btn-micro.btn-micro-sugerido:hover { background: #d35400; }
+        @keyframes pulsoSugerido { 0%,100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.5); } 50% { box-shadow: 0 0 0 4px rgba(230,126,34,0); } }
         @media (max-width:768px){.mobile-menu-btn{display:block}.topbar{height:auto;min-height:60px;padding:12px 10px;flex-wrap:wrap;gap:10px}.topbar>div{display:flex;flex-direction:column;flex-grow:1}.topbar h2{font-size:.95rem;margin-bottom:2px;line-height:1.3}.top-nav-icons{margin-right:0;padding-right:0;border-right:none}.btn-nuevo-socio,.btn-prueba,.btn-sync-mp{font-size:.7rem;padding:8px 12px;margin-left:auto;width:100%;justify-content:center;margin-bottom:5px}.content-body{padding:15px;padding-bottom:120px!important}.sidebar{position:fixed;left:-280px;height:100%;transition:left .3s ease;box-shadow:2px 0 10px rgba(0,0,0,0.2)}.sidebar.open{left:0}.right-panel{position:fixed;right:-260px;height:100%;transition:right .3s ease;box-shadow:-2px 0 10px rgba(0,0,0,0.2)}.right-panel.open{right:0}.right-panel.collapsed{right:-260px;width:260px;min-width:260px;border-left:1px solid var(--borde)}.btn-toggle-panel{width:28px;height:60px;font-size:.8rem;box-shadow:-3px 0 8px rgba(0,0,0,0.1);border-radius:8px 0 0 8px}.tiles-grid{grid-template-columns:1fr 1fr;gap:10px}.tile{padding:12px}.tile-number{font-size:1.4rem}.search-row{flex-direction:column;align-items:stretch}.search-wrapper,.sort-wrapper{width:100%}.filter-buttons{justify-content:space-between}.btn-filter{flex:1 1 45%}.socio-card-header{flex-direction:column;align-items:flex-start;gap:12px}.socio-right-panel{width:100%;margin-left:0;align-items:center;gap:12px}.meses-grid{flex-wrap:wrap;justify-content:center;max-width:100%}.mes-interact{width:28px;height:28px;font-size:.7rem}.admin-micro-actions{justify-content:center}.form-row.flex-row{flex-direction:column;gap:15px}.workshops-grid{grid-template-columns:1fr}.modal-box.form-modal{padding:20px 15px}}
     </style>
 </head>
@@ -1408,34 +1411,33 @@
 
         function actualizarEstadosGeneral() {
             sociosData.forEach(s => {
+                // Por defecto nadie queda "sugerido para inactivar"; se setea más abajo si corresponde.
+                s.sugerirInactivar = false;
+
                 // Inactivación manual explícita: máxima prioridad.
                 if(s.inactivoManual) { s.estadoCalculado = 'inactivo'; return; }
                 if(esComisionDirectiva(s)) { s.estadoCalculado = 'cd'; return; }
 
-                // Punto 2: si el desarrollador reactivó manualmente, el socio está activo
-                // aunque su cuota esté atrasada. Se calcula 'dia' si pagó el mes actual, si no 'pendiente',
-                // pero NUNCA cae en 'mora'/'inactivo' automáticamente.
+                // Si el usuario reactivó manualmente, el socio permanece activo
+                // aunque su cuota esté atrasada. 'dia' si pagó el mes actual, si no 'pendiente'.
                 if(s.reactivadoManual) {
                     let pagoMesActual = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
                     s.estadoCalculado = pagoMesActual ? 'dia' : 'pendiente';
                     return;
                 }
 
-                // Opción A: un socio con MP suscripción activa está siempre al día.
-                // Solo la auditoría (marcándolo MP_CAIDO) o inactivación manual lo bajan.
+                // MP con suscripción activa => siempre al día (requisito 1).
                 if(s.formaPago === 'MP') { s.estadoCalculado = 'dia'; return; }
 
-                // Regla unificada (SIN inactivación automática por deuda):
-                // La inactivación solo ocurre por flag manual (s.inactivoManual), ya resuelto arriba.
-                // El control de deuda solo marca día / pendiente / mora.
-                // 1) Si el mes actual está pago => al día (sin importar meses viejos).
-                //    Esto permite que deudas viejas (ej. Ene-Feb) NO afecten si lo reciente está pago.
-                // 2) Si no, se cuentan meses vencidos impagos desde el mes de alta (si es de este año)
-                //    o desde enero (si es de un año anterior), sin contar el mes actual:
-                //    0 => día, 1 => pendiente, 2 o más => mora. Nunca inactivo.
+                // REGLAS DE ACTIVIDAD AUTOMÁTICA (sin inactivar solo; solo SUGIERE inactivar):
+                //  (req 3) Mes actual pago => al día.
+                //  (req 2) Al menos los 2 meses vencidos más recientes pagos => activo (día/pendiente).
+                //  (req 3) Todo pago salvo el mes actual en curso => activo.
+                //  Si no cumple ninguno => s.sugerirInactivar = true (y queda en 'mora' hasta que lo inactiven).
                 let pagoMesActualEst = s.pagos[mesesLista[indiceMesActual]] && s.pagos[mesesLista[indiceMesActual]] !== "";
                 if(pagoMesActualEst) { s.estadoCalculado = 'dia'; return; }
 
+                // Mes de inicio de conteo: mes de alta si es de este año, si no enero.
                 let mesInicioConteo = 0;
                 if(s.fechaCreacionStr && s.fechaCreacionStr.indexOf('/') !== -1) {
                     let partesFA = s.fechaCreacionStr.split('/');
@@ -1448,11 +1450,36 @@
                 }
                 if(mesInicioConteo < 0) mesInicioConteo = 0;
 
-                let mesesVencidosImpagos = 0;
-                for(let i = mesInicioConteo; i < indiceMesActual; i++) { let m = mesesLista[i]; if(!(s.pagos[m] && s.pagos[m] !== "")) mesesVencidosImpagos++; }
-                if(mesesVencidosImpagos === 0) s.estadoCalculado = 'dia';
-                else if(mesesVencidosImpagos === 1) s.estadoCalculado = 'pendiente';
-                else s.estadoCalculado = 'mora';
+                // Meses vencidos = anteriores al mes actual (desde el inicio de conteo).
+                let mesesVencidos = [];
+                for(let i = mesInicioConteo; i < indiceMesActual; i++) mesesVencidos.push(mesesLista[i]);
+
+                // Sin meses vencidos aún (alta en el mes actual) => activo al día.
+                if(mesesVencidos.length === 0) { s.estadoCalculado = 'dia'; return; }
+
+                // Los 2 meses vencidos más recientes deben estar pagos (o el único que haya).
+                let cantAChequear = Math.min(2, mesesVencidos.length);
+                let ultimosVencidos = mesesVencidos.slice(mesesVencidos.length - cantAChequear);
+                let ultimosPagos = ultimosVencidos.every(m => s.pagos[m] && s.pagos[m] !== "");
+
+                // Red de seguridad para ALTAS RECIENTES: si tiene exactamente un mes pago
+                // y ese pago es reciente (mes actual o el inmediato anterior), se considera
+                // activo aunque la fecha de alta no esté bien cargada. Una sola cuota reciente
+                // no debe penalizarse.
+                let mesesPagos = mesesLista.filter(m => s.pagos[m] && s.pagos[m] !== "");
+                let idxMesAnterior = indiceMesActual - 1;
+                let unicoPagoReciente = mesesPagos.length === 1 &&
+                    (mesesPagos[0] === mesesLista[indiceMesActual] || (idxMesAnterior >= 0 && mesesPagos[0] === mesesLista[idxMesAnterior]));
+
+                if(ultimosPagos || unicoPagoReciente) {
+                    // Cumple requisito de actividad. ¿Tiene algo viejo impago? => pendiente, si no => día.
+                    let hayViejoImpago = mesesVencidos.some(m => !(s.pagos[m] && s.pagos[m] !== ""));
+                    s.estadoCalculado = hayViejoImpago ? 'pendiente' : 'dia';
+                } else {
+                    // No cumple: se SUGIERE inactivar (no se inactiva solo). Queda en 'mora'.
+                    s.estadoCalculado = 'mora';
+                    s.sugerirInactivar = true;
+                }
             });
         }
 
@@ -1603,7 +1630,9 @@
                     `<button class='btn-micro btn-micro-green' onclick='restaurarMPActivo(${s.id}); event.stopPropagation();'>Restaurar a MP Activo</button>` : '';
 
                 let estaInactivoCard = (s.inactivoManual || s.estadoCalculado === 'inactivo');
-                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${estaInactivoCard ? 'btn-micro-green' : 'btn-micro-red'}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${estaInactivoCard ? 'Reactivar' : 'Inactivar'}</button>` : '';
+                let btnInactLabel = estaInactivoCard ? 'Reactivar' : (s.sugerirInactivar ? '⚠️ Inactivar (sugerido)' : 'Inactivar');
+                let btnInactClase = estaInactivoCard ? 'btn-micro-green' : (s.sugerirInactivar ? 'btn-micro-sugerido' : 'btn-micro-red');
+                let btnReactInact = (usuarioActual) ? `<button class='btn-micro ${btnInactClase}' onclick='solicitarInactivacion(${s.id}); event.stopPropagation();'>${btnInactLabel}</button>` : '';
                 let accionesDevExtra = (usuarioActual && usuarioActual.rol === 'DESARROLLADOR') ? `
                         <button class='btn-micro btn-micro-blue' onclick='abrirModalAsignarProfe(${s.id})'>PROFESOR/A</button>
                         <button class='btn-micro' style='color:#c0392b; border: 1px solid #c0392b;' onclick='solicitarEliminarSocio(${s.id}); event.stopPropagation();'>🗑️ ELIMINAR</button>` : '';
