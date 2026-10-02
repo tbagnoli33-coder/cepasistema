@@ -157,7 +157,7 @@
             </div>
             
             <div style="padding: 20px; font-size: 0.7rem; color: #95a5a6; border-top: 1px solid var(--borde);">
-                <button class="btn-reporte-general" onclick="abrirModalReporteGeneral()">📄 Reporte General</button>
+                <button id="btnReporteGeneral" class="btn-reporte-general" style="display:none;" onclick="abrirModalReporteGeneral()">📄 Reporte General</button>
                 <button class="btn-logout" onclick="cerrarSesion()">Salir del sistema</button>
                 <div style="margin-top: 10px;">Sistema Integrado v36.0 - Sanitizado 🛡️</div>
             </div>
@@ -717,7 +717,7 @@
         let payerIdPorNombreMP = {}; // nombre normalizado del suscriptor MP -> payer_id (para vinculación manual)
         let ordenTalleresContable = { col: null, dir: null };
         let hayCambiosContables = false;
-        const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" } };
+        const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" }, "lucia": { id: 4, username: "lucia", password: "simon", nombre: "Lucía", rol: "DESARROLLADOR" } };
         let usuarioActual = null;
 
         document.getElementById('usernameInput').addEventListener("keyup", e => { if(e.key === "Enter") document.getElementById('passwordInput').focus(); });
@@ -749,6 +749,8 @@
                 if(tCD) tCD.style.display = usuarioActual.rol === "DESARROLLADOR" ? 'flex' : 'none';
                 if(sTT) sTT.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'block' : 'none';
                 if(sTM) sTM.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'block' : 'none';
+                let btnRep = document.getElementById('btnReporteGeneral');
+                if(btnRep) btnRep.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'flex' : 'none';
                 
                 let npGrid = document.getElementById('npTalleresGrid');
                 if(npGrid) npGrid.innerHTML = listaTalleres.map(t => `<div class='taller-pill' onclick="seleccionarTallerPrueba('${t}', this)" style='border-left:4px solid ${coloresTalleres[t]||'#ccc'}'>${t}</div>`).join('');
@@ -2810,6 +2812,7 @@
         // MÓDULO REPORTE GENERAL (PDF informe de gestión)
         // ==========================================
         function abrirModalReporteGeneral() {
+            if(!usuarioActual || (usuarioActual.rol !== 'DESARROLLADOR' && usuarioActual.rol !== 'TESORERIA')) { alert('Acceso denegado.'); return; }
             let selDesde = document.getElementById('repDesde');
             let selHasta = document.getElementById('repHasta');
             if(selDesde && selHasta && selDesde.options.length === 0) {
