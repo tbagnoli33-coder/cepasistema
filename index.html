@@ -74,6 +74,54 @@
         .pago-tag-mp-semestral { background: #d4efdf; color: #1e8449; border: 1px solid #7dcea0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-mp-anual { background: #a9dfbf; color: #145a32; border: 1px solid #27ae60; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 600; white-space: nowrap; }
         .pago-tag-sinmetodo { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; padding: 2px 6px; border-radius: 4px; font-size: .6rem; font-weight: 700; white-space: nowrap; }
+        .leyenda-caja { background: #eef6fb; border: 1px solid #aed6f1; border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+        .leyenda-caja b { color: var(--primary); font-size: .82rem; }
+        .leyenda-caja p { font-size: .76rem; color: #555; line-height: 1.5; margin-top: 4px; }
+        .mov-wrap { margin-top: 26px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 14px; }
+        .mov-topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .mov-tabs { display: flex; align-items: center; gap: 6px; }
+        .mov-tab { padding: 6px 16px; border: 1px solid var(--borde); background: #fff; border-radius: 6px; font-weight: 700; font-size: .78rem; cursor: pointer; color: #555; }
+        .mov-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .mov-mes-sel { padding: 6px 10px; border: 1px solid var(--borde); border-radius: 6px; font-family: inherit; font-size: .78rem; margin-left: 6px; }
+        .mov-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+        .mov-btn-exp { padding: 6px 12px; border: 1px solid #1e8449; background: #eafaf1; color: #1e8449; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
+        .mov-btn-exp:hover { background: #1e8449; color: #fff; }
+        .mov-btn-add { padding: 6px 14px; border: none; background: var(--verde); color: #fff; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
+        .mov-btn-add:hover { background: #219653; }
+        .mov-titulo { font-weight: 700; color: var(--primary); font-size: .85rem; margin-bottom: 8px; }
+        .mov-scroll { overflow-x: auto; }
+        .mov-tabla { width: 100%; border-collapse: collapse; font-size: .76rem; min-width: 640px; }
+        .mov-tabla th, .mov-tabla td { border: 1px solid #d8dde3; padding: 4px 6px; text-align: center; }
+        .mov-head-grupos .mov-h-fecha { background: #f5e6a8; color: #6b5700; }
+        .mov-head-grupos .mov-h-concepto { background: #ffffff; color: var(--primary); min-width: 160px; }
+        .mov-head-grupos .mov-h-tipo { background: #ffffff; color: var(--primary); }
+        .mov-head-grupos .mov-h-medios { background: #1a2a44; color: #fff; letter-spacing: .5px; }
+        .mov-head-grupos .mov-h-total { background: #2c3e50; color: #fff; }
+        .mov-head-grupos .mov-h-acc { background: #2c3e50; }
+        .mov-head-canales .mov-h-canal { background: #34507a; color: #fff; font-size: .7rem; font-weight: 700; }
+        .mov-fila .mov-c-fecha { background: #fdf6d8; }
+        .mov-fila .mov-c-fecha input { background: transparent; border: none; font-family: inherit; font-size: .74rem; width: 112px; text-align: center; }
+        .mov-fila .mov-c-concepto { background: #fff; text-align: left; }
+        .mov-fila .mov-c-concepto input { width: 100%; border: none; background: transparent; font-family: inherit; font-size: .76rem; padding: 2px; }
+        .mov-fila .mov-c-tipo select { border: none; background: transparent; font-family: inherit; font-size: .74rem; cursor: pointer; }
+        .mov-fila.mov-ing { border-left: 3px solid #27ae60; }
+        .mov-fila.mov-egr { border-left: 3px solid #c0392b; }
+        .mov-fila.mov-ing .mov-c-tipo { color: #1e8449; font-weight: 700; }
+        .mov-fila.mov-egr .mov-c-tipo { color: #c0392b; font-weight: 700; }
+        .mov-c-monto { background: #f2f4f6; }
+        .mov-c-monto input { width: 80px; border: none; background: transparent; text-align: right; font-family: inherit; font-size: .76rem; }
+        .mov-c-monto input:focus { background: #fff; outline: 1px solid var(--accent); }
+        .mov-c-total { background: #eef2f6; font-weight: 700; color: var(--primary); white-space: nowrap; }
+        .mov-c-acc { background: #fff; }
+        .mov-del { border: 1px solid #e6a6a0; background: #fdeaea; color: #c0392b; border-radius: 4px; cursor: pointer; font-size: .7rem; padding: 2px 6px; }
+        .mov-del:hover { background: #c0392b; color: #fff; }
+        .mov-vacio { background: #fafbfc; color: #95a5a6; font-style: italic; padding: 14px; }
+        .mov-tot-row td { font-weight: 700; }
+        .mov-tot-row.mov-tot-ing td { background: #eafaf1; color: #1e8449; }
+        .mov-tot-row.mov-tot-egr td { background: #fdeaea; color: #c0392b; }
+        .mov-saldo { margin-top: 12px; padding: 10px 16px; border-radius: 8px; font-weight: 800; font-size: .95rem; text-align: center; }
+        .mov-saldo-pos { background: #eafaf1; color: #1e8449; border: 1.5px solid #27ae60; }
+        .mov-saldo-neg { background: #fdeaea; color: #c0392b; border: 1.5px solid #e74c3c; }
         .btn-reporte-general { width: 100%; padding: 10px; margin-bottom: 10px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: .8rem; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-reporte-general:hover { background: #1a252f; transform: translateY(-1px); }
         .reporte-tema-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--borde); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
@@ -2170,19 +2218,89 @@
             expandedTalleres.forEach(t => { let sId = t.replace(/[^a-zA-Z0-9]/g, ''); let r = document.getElementById('expand-' + sId); if(r) { r.classList.add('open'); renderChart(t); } });
         }
 
+        // ==========================================
+        // PLANILLA DE MOVIMIENTOS (ingresos/egresos extraordinarios tipo Excel)
+        // Estructura: datosContables["_MOVIMIENTOS_"] = [ {id, fecha:"YYYY-MM-DD", concepto, tipo:'ingreso'|'egreso', credicoop:Number, mp:Number, efectivo:Number} ]
+        // ==========================================
+        const CANALES_MOV = [ { k: 'credicoop', label: 'CREDICOOP' }, { k: 'mp', label: 'MP' }, { k: 'efectivo', label: 'Efectivo' } ];
+        let movVistaAnual = false; // false = mensual, true = anual
+        let movMesSel = indiceMesActual; // índice de mes para la vista mensual
+
+        function asegurarMovimientos() {
+            if(!datosContables) datosContables = inicializarDatosContables();
+            if(!Array.isArray(datosContables["_MOVIMIENTOS_"])) {
+                datosContables["_MOVIMIENTOS_"] = [];
+                // Migración de los extraordinarios/fijos viejos (_EXTRAS_) al canal Efectivo.
+                let ex = datosContables["_EXTRAS_"];
+                let anio = new Date().getFullYear();
+                if(ex) {
+                    (ex.fijos || []).forEach(f => {
+                        mesesLista.forEach(m => {
+                            let v = (ex.valoresFijos && ex.valoresFijos[f.id] && ex.valoresFijos[f.id][m]) ? ex.valoresFijos[f.id][m] : 0;
+                            if(v && v !== 0) {
+                                let mesNum = mesesLista.indexOf(m) + 1;
+                                datosContables["_MOVIMIENTOS_"].push({ id: 'mv_' + f.id + '_' + m, fecha: `${anio}-${String(mesNum).padStart(2,'0')}-01`, concepto: (f.desc || 'Movimiento fijo') + ' (migrado)', tipo: f.tipo === 'ingreso' ? 'ingreso' : 'egreso', credicoop: 0, mp: 0, efectivo: v });
+                            }
+                        });
+                    });
+                    Object.keys(ex.extraordinarios || {}).forEach(m => {
+                        let mesNum = mesesLista.indexOf(m) + 1;
+                        (ex.extraordinarios[m] || []).forEach(x => {
+                            datosContables["_MOVIMIENTOS_"].push({ id: 'mv_' + (x.id || Date.now()), fecha: `${anio}-${String(mesNum).padStart(2,'0')}-01`, concepto: (x.desc || 'Movimiento') + ' (migrado)', tipo: x.tipo === 'ingreso' ? 'ingreso' : 'egreso', credicoop: 0, mp: 0, efectivo: (x.monto || 0) });
+                        });
+                    });
+                }
+            }
+            return datosContables["_MOVIMIENTOS_"];
+        }
+
+        function totalMov(mov) { return (Number(mov.credicoop)||0) + (Number(mov.mp)||0) + (Number(mov.efectivo)||0); }
+
+        function mesDeMov(mov) {
+            // Devuelve índice de mes (0-11) a partir de fecha YYYY-MM-DD; si no parsea, -1.
+            if(!mov.fecha || typeof mov.fecha !== 'string') return -1;
+            let p = mov.fecha.split('-');
+            let m = parseInt(p[1], 10);
+            return (!isNaN(m) && m >= 1 && m <= 12) ? m - 1 : -1;
+        }
+
+        // Totales de movimientos por mes (para integrar al resumen del flujo de caja).
+        function totalesMovimientosPorMes() {
+            let movs = asegurarMovimientos();
+            let res = { ingresos: {}, egresos: {} };
+            mesesLista.forEach(m => { res.ingresos[m] = 0; res.egresos[m] = 0; });
+            movs.forEach(mv => {
+                let idx = mesDeMov(mv);
+                if(idx < 0) return;
+                let etiqueta = mesesLista[idx];
+                let tot = totalMov(mv);
+                if(mv.tipo === 'ingreso') res.ingresos[etiqueta] += tot; else res.egresos[etiqueta] += tot;
+            });
+            return res;
+        }
+
         function renderTablaFlujoCaja() {
             if (!datosEgresos) datosEgresos = inicializarDatosEgresos();
             if (!datosContables) datosContables = inicializarDatosContables();
             listaEgresos.forEach(e => { if(!datosEgresos[e]) datosEgresos[e] = {}; mesesLista.forEach(m => { if(datosEgresos[e][m] === undefined) datosEgresos[e][m] = 0; }); });
             listaTalleres.forEach(t => { if(!datosContables[t]) datosContables[t] = {}; mesesContables.forEach(m => { if(datosContables[t][m] === undefined) datosContables[t][m] = 0; }); });
             if (!datosContables["_EXTRAS_"]) { datosContables["_EXTRAS_"] = { fijos: [], valoresFijos: {}, extraordinarios: {} }; mesesLista.forEach(m => datosContables["_EXTRAS_"].extraordinarios[m] = []); }
+            asegurarMovimientos();
+            // Los "otros ingresos/egresos" ahora salen de la planilla de movimientos.
+            let movTot = totalesMovimientosPorMes();
             let extraTotales = { ingresos: {}, egresos: {} }, gEI = 0, gEE = 0;
             mesesLista.forEach(m => { 
-                extraTotales.ingresos[m] = 0; extraTotales.egresos[m] = 0; 
-                datosContables["_EXTRAS_"].fijos.forEach(f => { let v = datosContables["_EXTRAS_"].valoresFijos[f.id][m] || 0; if(f.tipo === 'ingreso') { extraTotales.ingresos[m] += v; gEI += v; } else { extraTotales.egresos[m] += v; gEE += v; } });
-                if(datosContables["_EXTRAS_"].extraordinarios[m]) { datosContables["_EXTRAS_"].extraordinarios[m].forEach(ex => { if(ex.tipo === 'ingreso') { extraTotales.ingresos[m] += ex.monto; gEI += ex.monto; } else { extraTotales.egresos[m] += ex.monto; gEE += ex.monto; } }); }
+                extraTotales.ingresos[m] = movTot.ingresos[m] || 0;
+                extraTotales.egresos[m] = movTot.egresos[m] || 0;
+                gEI += extraTotales.ingresos[m];
+                gEE += extraTotales.egresos[m];
             });
-            let cuotasInfo = calcularTotalesCuotas(), html = `<div class="contable-container"><table class="tabla-contable"><thead><tr><th>MÉTODO</th>`;
+            let cuotasInfo = calcularTotalesCuotas();
+            let html = `<div class="leyenda-caja">
+                <b>ℹ️ ¿De dónde salen estos ingresos por cuotas?</b>
+                <p>Es un <b>cálculo aproximado automático</b>. Por cada mes en que un socio figura con la cuota paga, se suma un valor neto estimado según su método de pago: <b>Mercado Pago $${cuotasInfo.MP.neto.toLocaleString('es-AR')}</b>, <b>Efectivo $${cuotasInfo.EF.neto.toLocaleString('es-AR')}</b> y <b>Transferencia $${cuotasInfo.TR.neto.toLocaleString('es-AR')}</b> (netos, ya descontadas comisiones). El sistema cuenta los meses pagos de todos los socios y los multiplica por ese valor. No reemplaza la conciliación real: es una estimación para tener un panorama rápido.</p>
+            </div>`;
+            html += `<div class="contable-container"><table class="tabla-contable"><thead><tr><th>MÉTODO</th>`;
             mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>ANUAL</th></tr></thead><tbody>`;
             let tC = { "Ene":0, "Feb":0, "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }, gTC = 0;
             ["MP", "EF", "TR"].forEach(fp => { html += `<tr><td>${fp}</td>`; mesesLista.forEach(m => { let v = cuotasInfo[fp].meses[m]; tC[m] += v; html += `<td>$ ${v.toLocaleString('es-AR')}</td>`; }); gTC += cuotasInfo[fp].total; html += `<td style="font-weight:700;">$ ${cuotasInfo[fp].total.toLocaleString('es-AR')}</td></tr>`; });
@@ -2200,10 +2318,182 @@
             html += `<div class="contable-container" style="margin-top:20px; border:2px solid #ccc;"><table class="tabla-contable"><thead><tr><th>MÉTRICA</th>`; mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>AÑO</th></tr></thead><tbody>`;
             html += `<tr><td style="color:green; font-weight:700;">INGRESOS BASE</td>`; let tIA = 0; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let tIn = tC[m] + tm; tIA += tIn; html += `<td style="color:green;">$ ${tIn.toLocaleString('es-AR')}</td>`; }); html += `<td style="color:green; font-weight:700;">$ ${tIA.toLocaleString('es-AR')}</td></tr>`;
             html += `<tr><td style="color:red; font-weight:700;">EGRESOS BASE</td>`; mesesLista.forEach(m => html += `<td style="color:red;">$ ${tE[m].toLocaleString('es-AR')}</td>`); html += `<td style="color:red; font-weight:700;">$ ${gTE.toLocaleString('es-AR')}</td></tr>`;
-            html += `<tr style="background:#e8f8f5;"><td style="color:green;">OTROS INGRESOS ✏️</td>`; mesesLista.forEach(m => html += `<td style="cursor:pointer;" onclick="abrirModalAjustes('${m}')">$ ${extraTotales.ingresos[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gEI.toLocaleString('es-AR')}</td></tr>`;
-            html += `<tr style="background:#fbeee6;"><td style="color:red;">OTROS EGRESOS ✏️</td>`; mesesLista.forEach(m => html += `<td style="cursor:pointer;" onclick="abrirModalAjustes('${m}')">$ ${extraTotales.egresos[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gEE.toLocaleString('es-AR')}</td></tr>`;
+            html += `<tr style="background:#e8f8f5;"><td style="color:green;">OTROS INGRESOS</td>`; mesesLista.forEach(m => html += `<td>$ ${extraTotales.ingresos[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gEI.toLocaleString('es-AR')}</td></tr>`;
+            html += `<tr style="background:#fbeee6;"><td style="color:red;">OTROS EGRESOS</td>`; mesesLista.forEach(m => html += `<td>$ ${extraTotales.egresos[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gEE.toLocaleString('es-AR')}</td></tr>`;
             html += `<tr style="background:#2c3e50;"><td style="color:white; font-weight:700;">NETO</td>`; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let n = (tC[m] + tm + extraTotales.ingresos[m]) - (tE[m] + extraTotales.egresos[m]); html += `<td style="color:white; background:${n>=0?'green':'red'};">$ ${n.toLocaleString('es-AR')}</td>`; }); let gN = (tIA + gEI) - (gTE + gEE); html += `<td style="color:white; background:${gN>=0?'green':'red'}; font-weight:800;">$ ${gN.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
+            html += `<p style="font-size:.72rem; color:#7f8c8d; margin-top:6px;">Las filas <b>OTROS INGRESOS</b> y <b>OTROS EGRESOS</b> se nutren automáticamente de la planilla de movimientos de abajo.</p>`;
+
+            // Planilla editable de movimientos extraordinarios.
+            html += `<div id="planilla-movimientos"></div>`;
             document.getElementById('tab-content-caja').innerHTML = html;
+            renderPlanillaMovimientos();
+        }
+
+        function puedeEditarCaja() { return usuarioActual && (usuarioActual.rol === 'DESARROLLADOR' || usuarioActual.rol === 'TESORERIA'); }
+
+        function renderPlanillaMovimientos() {
+            let cont = document.getElementById('planilla-movimientos');
+            if(!cont) return;
+            let movs = asegurarMovimientos();
+            let puede = puedeEditarCaja();
+
+            // Filtrado por vista.
+            let visibles = movs.map((m, i) => ({ m, i }));
+            if(!movVistaAnual) visibles = visibles.filter(o => mesDeMov(o.m) === movMesSel);
+
+            // Totales por canal y tipo (sobre lo visible).
+            let tot = { ingreso: { credicoop: 0, mp: 0, efectivo: 0 }, egreso: { credicoop: 0, mp: 0, efectivo: 0 } };
+            visibles.forEach(o => { let t = o.m.tipo === 'ingreso' ? 'ingreso' : 'egreso'; CANALES_MOV.forEach(c => tot[t][c.k] += (Number(o.m[c.k]) || 0)); });
+            let totalIng = tot.ingreso.credicoop + tot.ingreso.mp + tot.ingreso.efectivo;
+            let totalEgr = tot.egreso.credicoop + tot.egreso.mp + tot.egreso.efectivo;
+            let saldo = totalIng - totalEgr;
+
+            let h = `<div class="mov-wrap">`;
+            // Encabezado con pestañas y acciones.
+            h += `<div class="mov-topbar">
+                <div class="mov-tabs">
+                    <button class="mov-tab ${!movVistaAnual ? 'active' : ''}" onclick="setMovVista(false)">Mensual</button>
+                    <button class="mov-tab ${movVistaAnual ? 'active' : ''}" onclick="setMovVista(true)">Anual</button>
+                    ${!movVistaAnual ? `<select class="mov-mes-sel" onchange="setMovMes(this.value)">${mesesLista.map((mm,i)=>`<option value="${i}" ${i===movMesSel?'selected':''}>${mm}</option>`).join('')}</select>` : ''}
+                </div>
+                <div class="mov-acciones">
+                    <button class="mov-btn-exp" onclick="exportarMovimientosExcel()">⬇️ Excel</button>
+                    <button class="mov-btn-exp" onclick="exportarMovimientosPDF()">⬇️ PDF</button>
+                    ${puede ? `<button class="mov-btn-add" onclick="agregarMovimiento()">➕ Agregar fila</button>` : ''}
+                </div>
+            </div>`;
+
+            h += `<div class="mov-titulo">📋 Planilla de ingresos y egresos ${movVistaAnual ? '(todo el año)' : '(' + mesesLista[movMesSel] + ')'}</div>`;
+
+            h += `<div class="mov-scroll"><table class="mov-tabla"><thead>
+                <tr class="mov-head-grupos">
+                    <th class="mov-h-fecha" rowspan="2">Fecha</th>
+                    <th class="mov-h-concepto" rowspan="2">Concepto</th>
+                    <th class="mov-h-tipo" rowspan="2">Tipo</th>
+                    <th class="mov-h-medios" colspan="3">MEDIOS DE PAGO</th>
+                    <th class="mov-h-total" rowspan="2">Total</th>
+                    ${puede ? '<th class="mov-h-acc" rowspan="2"></th>' : ''}
+                </tr>
+                <tr class="mov-head-canales">
+                    ${CANALES_MOV.map(c => `<th class="mov-h-canal">${c.label}</th>`).join('')}
+                </tr>
+            </thead><tbody>`;
+
+            if(visibles.length === 0) {
+                h += `<tr><td colspan="${puede ? 7 : 6}" class="mov-vacio">Sin movimientos ${movVistaAnual ? 'en el año' : 'en ' + mesesLista[movMesSel]}. ${puede ? 'Usá "Agregar fila" para cargar uno.' : ''}</td></tr>`;
+            } else {
+                visibles.forEach(o => {
+                    let mv = o.m, idx = o.i;
+                    let esIng = mv.tipo === 'ingreso';
+                    h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}">`;
+                    h += `<td class="mov-c-fecha"><input type="date" value="${mv.fecha || ''}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
+                    h += `<td class="mov-c-concepto"><input type="text" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="Concepto..." ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'concepto',this.value)"></td>`;
+                    h += `<td class="mov-c-tipo"><select ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'tipo',this.value)"><option value="ingreso" ${esIng?'selected':''}>Ingreso</option><option value="egreso" ${!esIng?'selected':''}>Egreso</option></select></td>`;
+                    CANALES_MOV.forEach(c => {
+                        h += `<td class="mov-c-monto"><input type="number" value="${mv[c.k] ? mv[c.k] : ''}" placeholder="0" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'${c.k}',this.value)"></td>`;
+                    });
+                    h += `<td class="mov-c-total">$ ${totalMov(mv).toLocaleString('es-AR')}</td>`;
+                    if(puede) h += `<td class="mov-c-acc"><button class="mov-del" onclick="eliminarMovimiento(${idx})" title="Eliminar fila">✖</button></td>`;
+                    h += `</tr>`;
+                });
+            }
+
+            // Fila de totales por canal.
+            h += `<tr class="mov-tot-row mov-tot-ing"><td colspan="3">TOTAL INGRESOS</td>`;
+            CANALES_MOV.forEach(c => h += `<td>$ ${tot.ingreso[c.k].toLocaleString('es-AR')}</td>`);
+            h += `<td>$ ${totalIng.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
+            h += `<tr class="mov-tot-row mov-tot-egr"><td colspan="3">TOTAL EGRESOS</td>`;
+            CANALES_MOV.forEach(c => h += `<td>$ ${tot.egreso[c.k].toLocaleString('es-AR')}</td>`);
+            h += `<td>$ ${totalEgr.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
+            h += `</tbody></table></div>`;
+
+            // Saldo final destacado.
+            h += `<div class="mov-saldo ${saldo >= 0 ? 'mov-saldo-pos' : 'mov-saldo-neg'}">
+                ${saldo >= 0 ? '🟢 SALDO (entrada neta)' : '🔴 SALDO (salida neta)'}: $ ${Math.abs(saldo).toLocaleString('es-AR')} ${saldo < 0 ? '(negativo)' : ''}
+            </div>`;
+            h += `</div>`;
+            cont.innerHTML = h;
+        }
+
+        function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
+        function setMovMes(i) { movMesSel = parseInt(i, 10) || 0; renderPlanillaMovimientos(); }
+
+        function agregarMovimiento() {
+            if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
+            let movs = asegurarMovimientos();
+            let anio = new Date().getFullYear();
+            let mesNum = (movVistaAnual ? indiceMesActual : movMesSel) + 1;
+            movs.push({ id: 'mv_' + Date.now(), fecha: `${anio}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderPlanillaMovimientos();
+        }
+
+        function editarMovimiento(idx, campo, valor) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            if(!movs[idx]) return;
+            if(campo === 'credicoop' || campo === 'mp' || campo === 'efectivo') movs[idx][campo] = parseFloat(valor) || 0;
+            else movs[idx][campo] = valor;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            // Si cambió un monto, tipo o fecha, re-render para actualizar totales y el resumen de arriba.
+            if(campo !== 'concepto') { renderTablaFlujoCaja(); }
+            else { let celTotal = null; renderPlanillaMovimientos(); }
+        }
+
+        function eliminarMovimiento(idx) {
+            if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
+            let movs = asegurarMovimientos();
+            if(!movs[idx]) return;
+            if(!confirm('¿Eliminar esta fila de movimiento?')) return;
+            movs.splice(idx, 1);
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+        }
+
+        function movimientosFiltrados() {
+            let movs = asegurarMovimientos();
+            if(movVistaAnual) return movs.slice();
+            return movs.filter(m => mesDeMov(m) === movMesSel);
+        }
+
+        function exportarMovimientosExcel() {
+            let movs = movimientosFiltrados();
+            let sep = ';';
+            let filas = [['Fecha', 'Concepto', 'Tipo', 'CREDICOOP', 'MP', 'Efectivo', 'Total']];
+            movs.forEach(m => filas.push([m.fecha || '', m.concepto || '', m.tipo || '', (Number(m.credicoop)||0), (Number(m.mp)||0), (Number(m.efectivo)||0), totalMov(m)]));
+            let csv = filas.map(f => f.map(escaparCSV).join(sep)).join('\r\n');
+            let blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            let suf = movVistaAnual ? 'anual' : mesesLista[movMesSel];
+            descargarBlob(blob, `CEPAS_movimientos_caja_${suf}_${new Date().getFullYear()}.csv`);
+        }
+
+        function exportarMovimientosPDF() {
+            if (!window.jspdf || !window.jspdf.jsPDF) { alert('No se puede generar el PDF ahora (librería no disponible).'); return; }
+            let movs = movimientosFiltrados();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+            let suf = movVistaAnual ? 'Todo el año' : mesesLista[movMesSel];
+            doc.setFontSize(14); doc.text('CEPAS · Movimientos de Caja — ' + suf, 40, 40);
+            doc.setFontSize(9); doc.text('Generado: ' + new Date().toLocaleString('es-AR'), 40, 58);
+            let body = movs.map(m => [m.fecha || '', m.concepto || '', (m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'), fmtMoneda(m.credicoop), fmtMoneda(m.mp), fmtMoneda(m.efectivo), fmtMoneda(totalMov(m))]);
+            let totIng = movs.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+totalMov(m),0);
+            let totEgr = movs.filter(m=>m.tipo!=='ingreso').reduce((a,m)=>a+totalMov(m),0);
+            doc.autoTable({
+                head: [['Fecha', 'Concepto', 'Tipo', 'CREDICOOP', 'MP', 'Efectivo', 'Total']],
+                body: body, startY: 72, theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: [44, 62, 80] }
+            });
+            let y = doc.lastAutoTable.finalY + 16;
+            doc.setFontSize(10);
+            doc.setTextColor(39, 174, 96); doc.text('Total ingresos: ' + fmtMoneda(totIng), 40, y);
+            doc.setTextColor(192, 57, 43); doc.text('Total egresos: ' + fmtMoneda(totEgr), 240, y);
+            let saldo = totIng - totEgr;
+            doc.setTextColor(saldo >= 0 ? 39 : 192, saldo >= 0 ? 174 : 57, saldo >= 0 ? 96 : 43);
+            doc.setFont(undefined, 'bold'); doc.text('SALDO: ' + fmtMoneda(saldo), 440, y);
+            doc.save(`CEPAS_movimientos_caja_${movVistaAnual ? 'anual' : mesesLista[movMesSel]}_${new Date().getFullYear()}.pdf`);
         }
 
         function abrirModalAjustes(mes) { mesAjusteActual = mes; document.getElementById('modalAjustesTitle').innerText = "Ajustes - " + mes; document.getElementById('ajDesc').value = ""; document.getElementById('ajMonto').value = ""; renderListaAjustes(); document.getElementById('modalAjustes').classList.add('open'); }
