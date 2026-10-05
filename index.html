@@ -2868,9 +2868,15 @@
         function parseFechaCSVContable(s, anio) {
             if(!s) return null;
             let t = String(s).trim().replace(/"/g, '');
-            // Tolera espacios alrededor del separador: "1.07", "1. 10", "31 . 10", etc.
-            let m = t.match(/^(\d{1,2})\s*[.\/]\s*(\d{1,2})$/);
-            if(m) return `${anio}-${String(parseInt(m[2],10)).padStart(2,'0')}-${String(parseInt(m[1],10)).padStart(2,'0')}`;
+            // Formato con año: "01.08.25", "05/09/2025" (día.mes.año). Toma el año de la fecha.
+            let m3 = t.match(/^(\d{1,2})\s*[.\/]\s*(\d{1,2})\s*[.\/]\s*(\d{2,4})$/);
+            if(m3) {
+                let a = parseInt(m3[3], 10); if(a < 100) a = 2000 + a;
+                return `${a}-${String(parseInt(m3[2],10)).padStart(2,'0')}-${String(parseInt(m3[1],10)).padStart(2,'0')}`;
+            }
+            // Formato sin año: "1.07", "1. 10" (día.mes). Usa el año del parámetro.
+            let m2 = t.match(/^(\d{1,2})\s*[.\/]\s*(\d{1,2})$/);
+            if(m2) return `${anio}-${String(parseInt(m2[2],10)).padStart(2,'0')}-${String(parseInt(m2[1],10)).padStart(2,'0')}`;
             return null;
         }
         function splitCSVLineContable(line) {
@@ -2921,6 +2927,13 @@
                 });
             }
             // Totales calculados por canal/tipo.
+            // Si las fechas de los movimientos traen año propio (ej. "01.08.25"), ese año manda
+            // sobre la cabecera y sobre el seleccionado, para ubicarlos donde corresponde.
+            let aniosEnMovs = [...new Set(movs.map(mv => parseInt((mv.fecha||'').split('-')[0],10)).filter(a => !isNaN(a)))];
+            if(aniosEnMovs.length === 1) { anio = aniosEnMovs[0]; anioDesdeCabecera = true; }
+            // El mes también se re-deriva de las fechas si no se identificó por nombre.
+            if(mesIdx === -1 && movs.length > 0) { let m = parseInt((movs[0].fecha||'').split('-')[1],10); if(!isNaN(m)) mesIdx = m-1; }
+
             let totales = { ingreso: {credicoop:0,mp:0,efectivo:0}, egreso: {credicoop:0,mp:0,efectivo:0} };
             movs.forEach(mv => { let t = mv.tipo; ['credicoop','mp','efectivo'].forEach(c => totales[t][c] += (Number(mv[c])||0)); });
             return { movs, anio, anioDesdeCabecera, mesIdx, totales };
