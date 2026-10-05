@@ -158,6 +158,16 @@
             }
         }
         @keyframes avisoVolador { 0% { opacity: 0; transform: translateX(-50%) translateY(10px); } 12% { opacity: .96; transform: translateX(-50%) translateY(0); } 75% { opacity: .96; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+        .btn-recibo { margin-top: 8px; width: 100%; padding: 6px 10px; background: #eef6fb; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; font-weight: 700; cursor: pointer; font-size: .68rem; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+        .btn-recibo:hover { background: var(--accent); color: #fff; }
+        .recibo-mes-chk { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--borde); border-radius: 20px; font-size: .78rem; cursor: pointer; background: #fff; }
+        .recibo-mes-chk input { cursor: pointer; }
+        /* Modo CONTADOR: acceso exclusivo al Análisis Contable, oculta el resto de la UI. */
+        body.modo-contador .nav-solo-gestion,
+        body.modo-contador .top-nav-icons,
+        body.modo-contador .topbar-acciones,
+        body.modo-contador .btn-toggle-panel,
+        body.modo-contador #rightPanel { display: none !important; }
         .btn-reporte-general { width: 100%; padding: 10px; margin-bottom: 10px; background: #2c3e50; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: .8rem; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-reporte-general:hover { background: #1a252f; transform: translateY(-1px); }
         .reporte-tema-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--borde); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
@@ -214,8 +224,8 @@
                     </div>
                 </div>
 
-                <div class="nav-section-title">Talleres Oficiales</div>
-                <ul class="nav-menu">
+                <div class="nav-section-title nav-solo-gestion">Talleres Oficiales</div>
+                <ul class="nav-menu nav-solo-gestion">
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #ff00ff;" onclick="seleccionarVista('taller', 'ZUMBA', this)"><span>💃</span> ZUMBA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #ff8c00;" onclick="seleccionarVista('taller', 'FOLKLORE', this)"><span>🎶</span> FOLKLORE</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #4169e1;" onclick="seleccionarVista('taller', 'YOGA', this)"><span>🧘</span> YOGA</a></li>
@@ -229,7 +239,7 @@
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #a9a9a9;" onclick="seleccionarVista('taller', 'GRUPO LECTURA', this)"><span>📚</span> GRUPO LECTURA</a></li>
                     <li class="nav-item"><a class="nav-link taller-link" style="--taller-color: #1abc9c;" onclick="seleccionarVista('taller', 'DIBUJO ADULTOS/AS', this)"><span>✏️</span> DIBUJO ADULTOS/AS</a></li>
                 </ul>
-                <ul class="nav-menu" style="margin-top:15px; border-top:1px solid var(--borde); padding-top:15px;">
+                <ul class="nav-menu nav-solo-gestion" style="margin-top:15px; border-top:1px solid var(--borde); padding-top:15px;">
                     <li class="nav-item"><a class="nav-link btn-alquileres" onclick="seleccionarVista('alquileres', null, this)"><span style="font-size: 1.1rem;">💼</span> GESTIÓN ALQUILERES</a></li>
                     <li class="nav-item"><a class="nav-link btn-buffet" onclick="seleccionarVista('buffet', null, this)"><span style="font-size: 1.1rem;">🍔</span> CÁLCULO BUFFET</a></li>
                 </ul>
@@ -276,7 +286,7 @@
                         <span style="font-size: 0.7rem; color: #7f8c8d; font-weight: 500;" id="total-socios-label">Conectando con Google Sheets... ⏳</span>
                     </div>
                 </div>
-                <div style="display:flex; align-items: center; flex-wrap: wrap; gap: 5px;">
+                <div class="topbar-acciones" style="display:flex; align-items: center; flex-wrap: wrap; gap: 5px;">
                     <div class="notif-bell" onclick="abrirPanelNotificaciones()">🔔<span class="notif-badge" id="badge-notif">0</span></div>
                     <button class="btn-prueba" onclick="abrirModalPrueba()">🆓 PROBAR CLASE</button>
                     <button class="btn-sync-mp" onclick="abrirAuditoriaMP()">📊 Auditoría / MP</button>
@@ -558,6 +568,23 @@
         </div>
     </div>
 
+    <!-- MODAL ENVIAR RECIBO POR CORREO -->
+    <div id="modalRecibo" class="modal-overlay" onclick="cerrarModalRecibo()">
+        <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 480px;">
+            <h3>📧 Enviar recibo por correo</h3>
+            <p id="reciboSubtitulo" style="margin-bottom:12px;"></p>
+            <div class="form-row">
+                <label class="form-label" style="margin-bottom:8px; display:block;">Meses pagos a incluir en el recibo</label>
+                <div id="reciboMesesGrid" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+            </div>
+            <div id="reciboAvisoCorreo" style="display:none; font-size:.76rem; color:#c0392b; background:#fdeaea; border:1px solid #e6a6a0; border-radius:6px; padding:8px 10px; margin-top:6px;"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancelar" onclick="cerrarModalRecibo()">Cancelar</button>
+                <button class="modal-btn btn-confirmar" id="btnEnviarRecibo" onclick="enviarRecibo()">✉️ Abrir correo</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL REPORTE GENERAL -->
     <div id="modalReporteGeneral" class="modal-overlay" onclick="cerrarModalReporteGeneral()">
         <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 580px;">
@@ -801,7 +828,7 @@
         let payerIdPorNombreMP = {}; // nombre normalizado del suscriptor MP -> payer_id (para vinculación manual)
         let ordenTalleresContable = { col: null, dir: null };
         let hayCambiosContables = false;
-        const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" }, "lucia": { id: 4, username: "lucia", password: "simon", nombre: "Lucía", rol: "DESARROLLADOR" } };
+        const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" }, "lucia": { id: 4, username: "lucia", password: "simon", nombre: "Lucía", rol: "DESARROLLADOR" }, "contador": { id: 5, username: "contador", password: "Asociacion2026", nombre: "Contador", rol: "CONTADOR" } };
         let usuarioActual = null;
 
         document.getElementById('usernameInput').addEventListener("keyup", e => { if(e.key === "Enter") document.getElementById('passwordInput').focus(); });
@@ -829,18 +856,27 @@
                 document.getElementById('login-view').style.display = 'none'; document.getElementById('dashboard-view').style.display = 'flex';
                 document.getElementById('userAvatar').innerText = usuarioActual.nombre.substring(0, 2).toUpperCase(); document.getElementById('userNameDisplay').innerText = usuarioActual.nombre; document.getElementById('userRoleDisplay').innerText = usuarioActual.rol;
                 
+                let esContador = usuarioActual.rol === "CONTADOR";
                 let tCD = document.getElementById('topIconCD'), sTT = document.getElementById('seccionTesoreriaTitulo'), sTM = document.getElementById('seccionTesoreriaMenu');
                 if(tCD) tCD.style.display = usuarioActual.rol === "DESARROLLADOR" ? 'flex' : 'none';
-                if(sTT) sTT.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'block' : 'none';
-                if(sTM) sTM.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'block' : 'none';
+                if(sTT) sTT.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA" || esContador) ? 'block' : 'none';
+                if(sTM) sTM.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA" || esContador) ? 'block' : 'none';
                 let btnRep = document.getElementById('btnReporteGeneral');
                 if(btnRep) btnRep.style.display = (usuarioActual.rol === "DESARROLLADOR" || usuarioActual.rol === "TESORERIA") ? 'flex' : 'none';
                 
                 let npGrid = document.getElementById('npTalleresGrid');
                 if(npGrid) npGrid.innerHTML = listaTalleres.map(t => `<div class='taller-pill' onclick="seleccionarTallerPrueba('${t}', this)" style='border-left:4px solid ${coloresTalleres[t]||'#ccc'}'>${t}</div>`).join('');
                 
-                let fL = document.querySelector('.nav-link'); if(fL) fL.classList.add('active');
-                restaurarInterfazTabla(); cargarSociosDesdeNube();
+                // Modo CONTADOR: acceso exclusivo al módulo de Análisis Contable.
+                aplicarModoContador(esContador);
+
+                if(esContador) {
+                    // Entra directo al análisis contable; no carga la tabla de socios como vista inicial.
+                    cargarSociosDesdeNube();
+                } else {
+                    let fL = document.querySelector('.nav-link'); if(fL) fL.classList.add('active');
+                    restaurarInterfazTabla(); cargarSociosDesdeNube();
+                }
             } catch(e) { logDebug("ERROR INICIO: " + e.message); alert("Error al cargar. Revisá consola."); }
         }
 
@@ -859,6 +895,17 @@
         function cerrarPanelInactivosMovil() { if(window.innerWidth <= 768) document.getElementById('rightPanel').classList.remove('open'); }
         function cerrarSidebars() { document.getElementById('leftSidebar').classList.remove('open'); cerrarPanelInactivosMovil(); document.getElementById('mobileOverlayBg').style.display = 'none'; }
         function restaurarInterfazTabla() { document.getElementById('header-tabla-normal').style.display = 'block'; let mc = document.getElementById('mapa-wrapper'); if(mc) mc.style.display = 'none'; document.getElementById('socios-container').style.display = 'block'; }
+
+        // Modo CONTADOR: deja visible exclusivamente el módulo de Análisis Contable.
+        function aplicarModoContador(activar) {
+            // Marca el body para esconder vía CSS los elementos no permitidos (topbar, íconos, menús).
+            document.body.classList.toggle('modo-contador', !!activar);
+            if(activar) {
+                // Oculta el panel derecho de inactivos y lleva directo al análisis contable.
+                let rp = document.getElementById('rightPanel'); if(rp) rp.classList.add('collapsed');
+                abrirAnalisisContable(null);
+            }
+        }
 
         function seleccionarVista(v, param, el) {
             tipoVista = v; filtroParametro = param; document.querySelectorAll('.nav-link, .top-nav-icon').forEach(l => l.classList.remove('active')); if(el) el.classList.add('active');
@@ -1853,11 +1900,17 @@
                         ${accionesDevExtra}
                     </div>` : '';
 
+                // Botón de recibo: aparece debajo de los meses en TODA card con al menos un mes pago.
+                let tieneAlgunPago = mesesLista.some(m => s.pagos[m] && s.pagos[m] !== "");
+                let btnRecibo = tieneAlgunPago
+                    ? `<button class='btn-recibo' onclick='abrirModalRecibo(${s.id}); event.stopPropagation();'>📧 Enviar recibo</button>`
+                    : '';
+
                 let contenidoDerecho = '';
                 if (tipoVista === 'gestion_cd' && usuarioActual && usuarioActual.rol === 'DESARROLLADOR') {
                     contenidoDerecho = esComisionDirectiva(s) ? `<button class='btn-quitar-cd' onclick='solicitarCambioCD(${s.id}); event.stopPropagation();'>❌ Quitar de Comisión</button>` : `<button class='btn-add-cd' onclick='solicitarCambioCD(${s.id}); event.stopPropagation();'>⭐ Nombrar Comisión</button>`;
                 } else {
-                    contenidoDerecho = `<div class='meses-grid' onclick='event.stopPropagation()'>${mesesHtml}</div>${adminHtml}`;
+                    contenidoDerecho = `<div class='meses-grid' onclick='event.stopPropagation()'>${mesesHtml}</div>${btnRecibo}${adminHtml}`;
                 }
 
                 let labelEst = s.estadoCalculado === 'cd' ? 'EXENTO' : (s.estadoCalculado === 'inactivo' ? 'INACTIVO' : 'AL DÍA');
@@ -2189,7 +2242,7 @@
         }
 
         function abrirAnalisisContable(elemento) {
-            if (!usuarioActual || (usuarioActual.rol !== "TESORERIA" && usuarioActual.rol !== "DESARROLLADOR")) { alert("Acceso denegado."); return; }
+            if (!usuarioActual || (usuarioActual.rol !== "TESORERIA" && usuarioActual.rol !== "DESARROLLADOR" && usuarioActual.rol !== "CONTADOR")) { alert("Acceso denegado."); return; }
             tipoVista = 'analisis_contable'; filtroParametro = null;
             ordenTalleresContable = { col: null, dir: null };
             if(elemento) { document.querySelectorAll('.nav-link, .top-nav-icon').forEach(l => l.classList.remove('active')); elemento.classList.add('active'); }
@@ -2206,6 +2259,7 @@
             document.getElementById('socios-container').innerHTML = `<div class="tabs-container"><button id="tab-btn-talleres" class="tab-btn active" onclick="switchContableTab('talleres')">📊 Talleres</button><button id="tab-btn-caja" class="tab-btn" onclick="switchContableTab('caja')">💸 Caja</button></div><div id="tab-content-talleres" class="tab-content active"></div><div id="tab-content-caja" class="tab-content"></div><div class="barra-guardar-contable"><div id="aviso-guardar-contable" class="aviso-guardar-contable">⚠️ No te olvides de Guardar tus cambios!</div><button class="btn-guardar-flotante" onclick="guardarBovedaEnNube()">☁️ Guardar</button></div>`;
             if (hayCambiosContables) { let barra = document.querySelector('.barra-guardar-contable'); if (barra) barra.classList.add('con-aviso'); }
             renderTablaTalleres(); renderTablaFlujoCaja();
+            if(contableSoloLectura()) { let barra = document.querySelector('.barra-guardar-contable'); if(barra) barra.style.display = 'none'; }
         }
         function switchContableTab(tabName) {
             document.getElementById('tab-btn-talleres').classList.remove('active'); document.getElementById('tab-btn-caja').classList.remove('active');
@@ -2252,6 +2306,7 @@
             html += `<tr class="totales-row"><td colspan="2">TOTAL</td>`; mesesContables.forEach(mes => html += `<td>$ ${totalesMes[mes].toLocaleString('es-AR')}</td>`); html += `<td>$ ${granTotalAnual.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
             document.getElementById('tab-content-talleres').innerHTML = html;
             expandedTalleres.forEach(t => { let sId = t.replace(/[^a-zA-Z0-9]/g, ''); let r = document.getElementById('expand-' + sId); if(r) { r.classList.add('open'); renderChart(t); } });
+            bloquearEdicionContableSiCorresponde();
         }
 
         // ==========================================
@@ -2368,6 +2423,21 @@
         }
 
         function puedeEditarCaja() { return usuarioActual && (usuarioActual.rol === 'DESARROLLADOR' || usuarioActual.rol === 'TESORERIA'); }
+        // El CONTADOR solo puede ver y exportar: no edita montos ni configuración contable.
+        function contableSoloLectura() { return usuarioActual && usuarioActual.rol === 'CONTADOR'; }
+
+        // Para el CONTADOR (solo lectura): deshabilita todos los campos editables del módulo
+        // contable, pero deja intactos los botones de exportar.
+        function bloquearEdicionContableSiCorresponde() {
+            if(!contableSoloLectura()) return;
+            let cont = document.getElementById('socios-container');
+            if(!cont) return;
+            cont.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = true; });
+            // Re-habilitar lo que es de exportar/navegación (no modifica datos).
+            cont.querySelectorAll('.mov-fsel, .mov-mes-sel').forEach(el => { el.disabled = false; });
+            // Botones de edición que no deben verse en solo lectura.
+            cont.querySelectorAll('.mov-btn-add, .mov-del, .btn-guardar-flotante').forEach(el => { el.style.display = 'none'; });
+        }
 
         function renderPlanillaMovimientos() {
             let cont = document.getElementById('planilla-movimientos');
@@ -2486,6 +2556,7 @@
             </div>`;
             h += `</div>`;
             cont.innerHTML = h;
+            bloquearEdicionContableSiCorresponde();
         }
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
@@ -3201,6 +3272,86 @@
         function cerrarModalReporteGeneral() { document.getElementById('modalReporteGeneral').classList.remove('open'); }
 
         function fmtMoneda(n) { return '$ ' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
+
+        // ==========================================
+        // MÓDULO ENVÍO DE RECIBO POR CORREO (mailto)
+        // ==========================================
+        const MESES_NOMBRE_COMPLETO = { Ene:'enero', Feb:'febrero', Mar:'marzo', Abr:'abril', May:'mayo', Jun:'junio', Jul:'julio', Ago:'agosto', Sep:'septiembre', Oct:'octubre', Nov:'noviembre', Dic:'diciembre' };
+        let idSocioRecibo = null;
+
+        function abrirModalRecibo(idSocio) {
+            let s = sociosData.find(x => x.id === idSocio);
+            if(!s) return;
+            idSocioRecibo = idSocio;
+            document.getElementById('reciboSubtitulo').innerHTML = `Socio/a <b>#${s.id} ${escaparHTMLTexto(s.nombre)}</b>. Elegí los meses abonados a incluir en el comprobante.`;
+
+            // Meses pagos del socio.
+            let mesesPagos = mesesLista.filter(m => s.pagos[m] && s.pagos[m] !== "");
+            let grid = document.getElementById('reciboMesesGrid');
+            grid.innerHTML = mesesPagos.map(m => `
+                <label class="recibo-mes-chk">
+                    <input type="checkbox" value="${m}" checked> ${MESES_NOMBRE_COMPLETO[m].charAt(0).toUpperCase() + MESES_NOMBRE_COMPLETO[m].slice(1)}
+                </label>`).join('');
+
+            // Aviso si no tiene correo cargado.
+            let aviso = document.getElementById('reciboAvisoCorreo');
+            let btn = document.getElementById('btnEnviarRecibo');
+            let correoValido = s.correo && s.correo !== 'No registrado' && s.correo.indexOf('@') !== -1;
+            if(!correoValido) {
+                aviso.style.display = 'block';
+                aviso.innerText = '⚠️ Este socio no tiene un correo válido cargado en su ficha. Podés generar el recibo igual (se abrirá el correo sin destinatario) o cargar el correo en la ficha.';
+            } else {
+                aviso.style.display = 'none';
+            }
+            btn.disabled = false;
+            document.getElementById('modalRecibo').classList.add('open');
+        }
+        function cerrarModalRecibo() { document.getElementById('modalRecibo').classList.remove('open'); idSocioRecibo = null; }
+
+        function enviarRecibo() {
+            let s = sociosData.find(x => x.id === idSocioRecibo);
+            if(!s) { cerrarModalRecibo(); return; }
+            let seleccionados = Array.from(document.querySelectorAll('#reciboMesesGrid input[type=checkbox]:checked')).map(c => c.value);
+            if(seleccionados.length === 0) { alert('Elegí al menos un mes para incluir en el recibo.'); return; }
+
+            // Texto de meses en nombre completo, ordenados por calendario.
+            let mesesOrdenados = mesesLista.filter(m => seleccionados.includes(m));
+            let anio = new Date().getFullYear();
+            let listaMeses = mesesOrdenados.map(m => MESES_NOMBRE_COMPLETO[m]);
+            let mesesTexto;
+            if(listaMeses.length === 1) mesesTexto = listaMeses[0] + ' de ' + anio;
+            else mesesTexto = listaMeses.slice(0, -1).join(', ') + ' y ' + listaMeses[listaMeses.length - 1] + ' de ' + anio;
+
+            let hoy = new Date();
+            let fechaEmision = `${String(hoy.getDate()).padStart(2,'0')}/${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
+            let dni = (s.dni && s.dni !== 'No registrado') ? s.dni : '-';
+            let medioPago = metodoPagoLegible(s.formaPago) || '-';
+
+            let asunto = 'Comprobante de pago de cuota social - Centro Cultural CEPAS';
+            let cuerpo =
+`Estimado/a ${s.nombre}:
+
+Por la presente, el Centro Cultural CEPAS deja constancia de la recepcion del pago correspondiente a la CUOTA SOCIAL de los siguientes periodos:
+
+- ${mesesTexto}
+
+Datos del socio/a: N.º de socio #${s.id} - DNI ${dni}
+Medio de pago registrado: ${medioPago}
+Fecha de emision: ${fechaEmision}
+
+Agradecemos tu compromiso y acompanamiento, que hace posible sostener los talleres, actividades y espacios del Centro Cultural.
+
+Este comprobante se emite a modo de constancia administrativa interna y no constituye factura ni comprobante fiscal.
+
+Centro Cultural CEPAS
+Correo: cepas.inst@gmail.com - Tel: 11 7363 0775
+"El compromiso con el bien comun, la calidad de vida y la preservacion de los espacios verdes ha forjado nuestra identidad barrial."`;
+
+            let destinatario = (s.correo && s.correo !== 'No registrado' && s.correo.indexOf('@') !== -1) ? s.correo : '';
+            let mailto = `mailto:${encodeURIComponent(destinatario)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+            window.location.href = mailto;
+            cerrarModalRecibo();
+        }
 
         function generarReporteGeneral() {
             if (!window.jspdf || !window.jspdf.jsPDF) {
