@@ -2365,6 +2365,8 @@
         let movGraficoAbierto = false; // panel de gráficos desplegado
         let movGraficoTipo = 'lineas'; // 'lineas' | 'burbujas'
         let movGraficoRango = 'anual'; // 'anual' | 'sem1' | 'sem2' | 'mensual'
+        let movGraficoAnio = null; // año propio del gráfico (null = sigue al de la planilla)
+        let movGraficoMes = null; // mes propio del gráfico para vista mensual (null = sigue al de la planilla)
         let chartNetoInstance = null, chartBurbujasInstance = null;
 
         function asegurarMovimientos() {
@@ -2721,20 +2723,23 @@
 
             // Módulo de gráficos (colapsable).
             h += `<div class="mov-graf-wrap">
-                <button class="mov-graf-toggle" onclick="toggleMovGrafico()">${movGraficoAbierto ? '▼' : '▶'} 📈 Gráficos de ${movAnioSel}</button>`;
+                <button class="mov-graf-toggle" onclick="toggleMovGrafico()">${movGraficoAbierto ? '▼' : '▶'} 📈 Gráficos de ${anioGrafico()}</button>`;
             if(movGraficoAbierto) {
+                let aniosGraf = aniosConMovimientos();
                 h += `<div class="mov-graf-panel">
                     <div class="mov-graf-controls">
                         <div class="mov-graf-tabs">
                             <button class="mov-graf-tab ${movGraficoTipo==='lineas'?'on':''}" onclick="setMovGraficoTipo('lineas')">📉 Neto por mes</button>
                             <button class="mov-graf-tab ${movGraficoTipo==='burbujas'?'on':''}" onclick="setMovGraficoTipo('burbujas')">🫧 Conceptos</button>
                         </div>
+                        <select class="mov-graf-rango" onchange="setMovGraficoAnio(this.value)" title="Año del gráfico">${aniosGraf.map(a=>`<option value="${a}" ${a===anioGrafico()?'selected':''}>${a}</option>`).join('')}</select>
                         <select class="mov-graf-rango" onchange="setMovGraficoRango(this.value)">
                             <option value="anual" ${movGraficoRango==='anual'?'selected':''}>Año completo</option>
                             <option value="sem1" ${movGraficoRango==='sem1'?'selected':''}>1er semestre (Ene-Jun)</option>
                             <option value="sem2" ${movGraficoRango==='sem2'?'selected':''}>2do semestre (Jul-Dic)</option>
-                            <option value="mensual" ${movGraficoRango==='mensual'?'selected':''}>Mes actual (${mesesLista[movMesSel]})</option>
+                            <option value="mensual" ${movGraficoRango==='mensual'?'selected':''}>Un mes...</option>
                         </select>
+                        ${movGraficoRango==='mensual' ? `<select class="mov-graf-rango" onchange="setMovGraficoMes(this.value)" title="Mes del gráfico">${mesesLista.map((mm,i)=>`<option value="${i}" ${i===mesGrafico()?'selected':''}>${mm}</option>`).join('')}</select>` : ''}
                     </div>
                     <div class="mov-graf-canvas-box"><canvas id="movChartCanvas"></canvas></div>
                     <div class="mov-graf-leyenda" id="movGrafLeyenda"></div>
@@ -2814,9 +2819,11 @@
         function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; movOrdenTotal = null; movFiltroFechas = null; movPanelFechasAbierto = false; movFiltroConceptos = null; movPanelConceptosAbierto = false; renderPlanillaMovimientos(); }
 
         // ---- MÓDULO DE GRÁFICOS DE CAJA ----
-        function toggleMovGrafico() { movGraficoAbierto = !movGraficoAbierto; renderPlanillaMovimientos(); }
+        function toggleMovGrafico() { movGraficoAbierto = !movGraficoAbierto; if(movGraficoAbierto && movGraficoAnio === null) movGraficoAnio = movAnioSel; renderPlanillaMovimientos(); }
         function setMovGraficoTipo(t) { movGraficoTipo = t; renderPlanillaMovimientos(); }
-        function setMovGraficoRango(r) { movGraficoRango = r; renderPlanillaMovimientos(); }
+        function setMovGraficoRango(r) { movGraficoRango = r; if(r === 'mensual' && movGraficoMes === null) movGraficoMes = movMesSel; renderPlanillaMovimientos(); }
+        function setMovGraficoAnio(a) { movGraficoAnio = parseInt(a, 10) || new Date().getFullYear(); renderPlanillaMovimientos(); }
+        function setMovGraficoMes(m) { movGraficoMes = parseInt(m, 10) || 0; renderPlanillaMovimientos(); }
 
         // Normaliza un concepto para agrupar variantes (ej. "Cuota socios"/"Cuotas socias").
         function conceptoAgrupado(txt) {
@@ -2838,12 +2845,16 @@
             return t ? (t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()) : '(sin concepto)';
         }
 
+        // Año y mes efectivos del gráfico (propios si se eligieron, si no siguen a la planilla).
+        function anioGrafico() { return movGraficoAnio !== null ? movGraficoAnio : movAnioSel; }
+        function mesGrafico() { return movGraficoMes !== null ? movGraficoMes : movMesSel; }
+
         // Movimientos del año seleccionado dentro del rango del gráfico.
         function movsDelRangoGrafico() {
-            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === movAnioSel);
+            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === anioGrafico());
             if(movGraficoRango === 'sem1') return movs.filter(m => mesDeMov(m) >= 0 && mesDeMov(m) <= 5);
             if(movGraficoRango === 'sem2') return movs.filter(m => mesDeMov(m) >= 6 && mesDeMov(m) <= 11);
-            if(movGraficoRango === 'mensual') return movs.filter(m => mesDeMov(m) === movMesSel);
+            if(movGraficoRango === 'mensual') return movs.filter(m => mesDeMov(m) === mesGrafico());
             return movs; // anual
         }
 
@@ -2860,11 +2871,11 @@
         }
 
         function renderChartNeto(canvas, leyenda) {
-            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === movAnioSel);
+            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === anioGrafico());
             let labels = [], datos = [];
             if(movGraficoRango === 'mensual') {
                 // Neto acumulado día a día del mes seleccionado.
-                let delMes = movs.filter(m => mesDeMov(m) === movMesSel).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+                let delMes = movs.filter(m => mesDeMov(m) === mesGrafico()).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
                 let acum = 0, porDia = {};
                 delMes.forEach(m => { let d = (m.fecha||'').split('-')[2] || '?'; let signo = m.tipo==='ingreso'?1:-1; porDia[d] = (porDia[d]||0) + signo*totalMov(m); });
                 Object.keys(porDia).sort().forEach(d => { acum += porDia[d]; labels.push(d); datos.push(acum); });
