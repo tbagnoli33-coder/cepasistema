@@ -83,6 +83,9 @@
         .mov-tab { padding: 6px 16px; border: 1px solid var(--borde); background: #fff; border-radius: 6px; font-weight: 700; font-size: .78rem; cursor: pointer; color: #555; }
         .mov-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
         .mov-mes-sel { padding: 6px 10px; border: 1px solid var(--borde); border-radius: 6px; font-family: inherit; font-size: .78rem; margin-left: 6px; }
+        .mov-anio-sel { padding: 6px 10px; border: 1px solid var(--primary); border-radius: 6px; font-family: inherit; font-size: .78rem; font-weight: 700; color: var(--primary); margin-left: 6px; cursor: pointer; }
+        .mov-btn-limpiar { padding: 6px 12px; border: 1px solid #c0392b; background: #fdeaea; color: #c0392b; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
+        .mov-btn-limpiar:hover { background: #c0392b; color: #fff; }
         .mov-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
         .mov-btn-exp { padding: 6px 12px; border: 1px solid #1e8449; background: #eafaf1; color: #1e8449; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
         .mov-btn-exp:hover { background: #1e8449; color: #fff; }
@@ -2337,6 +2340,7 @@
         const CANALES_MOV = [ { k: 'credicoop', label: 'CREDICOOP' }, { k: 'mp', label: 'MP' }, { k: 'efectivo', label: 'Efectivo' } ];
         let movVistaAnual = false; // false = mensual, true = anual
         let movMesSel = indiceMesActual; // índice de mes para la vista mensual
+        let movAnioSel = new Date().getFullYear(); // año seleccionado para ver/importar
         let movFiltroTipo = 'todos'; // 'todos' | 'ingreso' | 'egreso'
         let movFiltroCanal = 'todos'; // 'todos' | 'credicoop' | 'mp' | 'efectivo'
         let movOrdenFecha = null; // null | 'asc' | 'desc'
@@ -2380,6 +2384,24 @@
             let p = mov.fecha.split('-');
             let m = parseInt(p[1], 10);
             return (!isNaN(m) && m >= 1 && m <= 12) ? m - 1 : -1;
+        }
+        function anioDeMov(mov) {
+            if(!mov.fecha || typeof mov.fecha !== 'string') return -1;
+            let a = parseInt(mov.fecha.split('-')[0], 10);
+            return isNaN(a) ? -1 : a;
+        }
+        // Años con movimientos cargados, más el año actual, ordenados.
+        function aniosConMovimientos() {
+            let movs = asegurarMovimientos();
+            let set = new Set(movs.map(anioDeMov).filter(a => a > 0));
+            set.add(new Date().getFullYear());
+            set.add(movAnioSel);
+            return [...set].sort((a, b) => b - a); // más reciente primero
+        }
+        // ¿El mes (idx) del año seleccionado tiene algún movimiento?
+        function mesTieneMovimientos(idxMes, anio) {
+            let movs = asegurarMovimientos();
+            return movs.some(mv => anioDeMov(mv) === anio && mesDeMov(mv) === idxMes);
         }
 
         // Conversión de fecha para mostrar: interna YYYY-MM-DD -> visible DD/MM/AA.
@@ -2489,8 +2511,9 @@
             let movs = asegurarMovimientos();
             let puede = puedeEditarCaja();
 
-            // 1) Filtrado por vista (mes o año).
+            // 1) Filtrado por vista (año siempre; mes solo en vista mensual).
             let visibles = movs.map((m, i) => ({ m, i }));
+            visibles = visibles.filter(o => anioDeMov(o.m) === movAnioSel);
             if(!movVistaAnual) visibles = visibles.filter(o => mesDeMov(o.m) === movMesSel);
             // 2) Filtro por tipo.
             if(movFiltroTipo !== 'todos') visibles = visibles.filter(o => (o.m.tipo === 'ingreso' ? 'ingreso' : 'egreso') === movFiltroTipo);
@@ -2538,7 +2561,8 @@
                 <div class="mov-tabs">
                     <button class="mov-tab ${!movVistaAnual ? 'active' : ''}" onclick="setMovVista(false)">Mensual</button>
                     <button class="mov-tab ${movVistaAnual ? 'active' : ''}" onclick="setMovVista(true)">Anual</button>
-                    ${!movVistaAnual ? `<select class="mov-mes-sel" onchange="setMovMes(this.value)">${mesesLista.map((mm,i)=>`<option value="${i}" ${i===movMesSel?'selected':''}>${mm}</option>`).join('')}</select>` : ''}
+                    <select class="mov-anio-sel" onchange="setMovAnio(this.value)" title="Año">${aniosConMovimientos().map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join('')}</select>
+                    ${!movVistaAnual ? `<select class="mov-mes-sel" onchange="setMovMes(this.value)">${mesesLista.map((mm,i)=>{let tiene=mesTieneMovimientos(i,movAnioSel);return `<option value="${i}" ${i===movMesSel?'selected':''}>${tiene?'📊 ':'▫️ '}${mm}${tiene?'':' (sin datos)'}</option>`;}).join('')}</select>` : ''}
                 </div>
                 <div class="mov-acciones">
                     <div class="mov-exportar-wrap">
@@ -2550,11 +2574,12 @@
                     </div>
                     ${puede ? `<button class="mov-btn-imp" onclick="document.getElementById('inputImportarCSV').click()">📥 Importar CSV</button>` : ''}
                     ${puede ? `<button class="mov-btn-add" onclick="agregarMovimiento()">➕ Agregar fila</button>` : ''}
+                    ${puede && !movVistaAnual ? `<button class="mov-btn-limpiar" onclick="limpiarMesMovimientos()">🗑️ Limpiar mes</button>` : ''}
                 </div>
                 <input type="file" id="inputImportarCSV" accept=".csv,text/csv" style="display:none" onchange="manejarArchivoCSV(this)">
             </div>`;
 
-            h += `<div class="mov-titulo">📋 Planilla de ingresos y egresos ${movVistaAnual ? '(todo el año)' : '(' + mesesLista[movMesSel] + ')'}</div>`;
+            h += `<div class="mov-titulo">📋 Planilla de ingresos y egresos ${movVistaAnual ? '(todo ' + movAnioSel + ')' : '(' + mesesLista[movMesSel] + ' ' + movAnioSel + ')'}</div>`;
 
             // Barra de filtros simples.
             h += `<div class="mov-filtros">
@@ -2646,7 +2671,21 @@
         }
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
-        function setMovMes(i) { movMesSel = parseInt(i, 10) || 0; renderPlanillaMovimientos(); }
+        function setMovMes(i) { movMesSel = parseInt(i, 10) || 0; movFiltroFechas = null; renderPlanillaMovimientos(); }
+        function setMovAnio(a) { movAnioSel = parseInt(a, 10) || new Date().getFullYear(); movFiltroFechas = null; renderPlanillaMovimientos(); }
+
+        function limpiarMesMovimientos() {
+            if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
+            let movs = asegurarMovimientos();
+            let delMes = movs.filter(mv => anioDeMov(mv) === movAnioSel && mesDeMov(mv) === movMesSel);
+            if(delMes.length === 0) { alert(`No hay movimientos cargados en ${mesesLista[movMesSel]} ${movAnioSel}.`); return; }
+            if(!confirm(`¿Borrar TODOS los ${delMes.length} movimientos de ${mesesLista[movMesSel]} ${movAnioSel}? Esta acción deja el mes en blanco y no se puede deshacer (salvo que no guardes).`)) return;
+            datosContables["_MOVIMIENTOS_"] = movs.filter(mv => !(anioDeMov(mv) === movAnioSel && mesDeMov(mv) === movMesSel));
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            alert(`🗑️ ${mesesLista[movMesSel]} ${movAnioSel} quedó en blanco. No olvides tocar "☁️ Guardar" para respaldar en la nube.`);
+        }
         function setMovFiltroTipo(t) { movFiltroTipo = t; renderPlanillaMovimientos(); }
         function setMovFiltroCanal(c) { movFiltroCanal = c; renderPlanillaMovimientos(); }
         function toggleMovFiltroCanal(c) { movFiltroCanal = (movFiltroCanal === c) ? 'todos' : c; renderPlanillaMovimientos(); }
@@ -2677,9 +2716,8 @@
         function agregarMovimiento() {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
             let movs = asegurarMovimientos();
-            let anio = new Date().getFullYear();
             let mesNum = (movVistaAnual ? indiceMesActual : movMesSel) + 1;
-            movs.push({ id: 'mv_' + Date.now(), fecha: `${anio}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
+            movs.push({ id: 'mv_' + Date.now(), fecha: `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderPlanillaMovimientos();
@@ -2711,8 +2749,8 @@
         }
 
         function movimientosFiltrados() {
-            let movs = asegurarMovimientos();
-            if(movVistaAnual) return movs.slice();
+            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === movAnioSel);
+            if(movVistaAnual) return movs;
             return movs.filter(m => mesDeMov(m) === movMesSel);
         }
 
@@ -2724,7 +2762,7 @@
             let csv = filas.map(f => f.map(escaparCSV).join(sep)).join('\r\n');
             let blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             let suf = movVistaAnual ? 'anual' : mesesLista[movMesSel];
-            descargarBlob(blob, `CEPAS_movimientos_caja_${suf}_${new Date().getFullYear()}.csv`);
+            descargarBlob(blob, `CEPAS_movimientos_caja_${suf}_${movAnioSel}.csv`);
         }
 
         function exportarMovimientosPDF() {
@@ -2732,7 +2770,7 @@
             let movs = movimientosFiltrados();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-            let suf = movVistaAnual ? 'Todo el año' : mesesLista[movMesSel];
+            let suf = (movVistaAnual ? 'Todo el año ' : mesesLista[movMesSel] + ' ') + movAnioSel;
             doc.setFontSize(14); doc.text('CEPAS · Movimientos de Caja — ' + suf, 40, 40);
             doc.setFontSize(9); doc.text('Generado: ' + new Date().toLocaleString('es-AR'), 40, 58);
             let body = movs.map(m => [fechaISOaDDMMAA(m.fecha) || m.fecha || '', m.concepto || '', (m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'), fmtMoneda(m.credicoop), fmtMoneda(m.mp), fmtMoneda(m.efectivo), fmtMoneda(totalMov(m))]);
@@ -2750,7 +2788,7 @@
             let saldo = totIng - totEgr;
             doc.setTextColor(saldo >= 0 ? 39 : 192, saldo >= 0 ? 174 : 57, saldo >= 0 ? 96 : 43);
             doc.setFont(undefined, 'bold'); doc.text('SALDO: ' + fmtMoneda(saldo), 440, y);
-            doc.save(`CEPAS_movimientos_caja_${movVistaAnual ? 'anual' : mesesLista[movMesSel]}_${new Date().getFullYear()}.pdf`);
+            doc.save(`CEPAS_movimientos_caja_${movVistaAnual ? 'anual' : mesesLista[movMesSel]}_${movAnioSel}.pdf`);
         }
 
         // ---- IMPORTACIÓN DE CSV CONTABLE (formato planilla CEPAS) ----
@@ -2786,13 +2824,15 @@
             let headerIdx = lineas.findIndex(l => /FECHA/i.test(l) && /CREDICOOP/i.test(l));
             if(headerIdx === -1) return { error: 'No se reconoció el formato. Falta la fila de encabezado FECHA/CREDICOOP.' };
             // Año e identificación del mes: buscamos nombre de mes en las primeras filas.
-            let anio = new Date().getFullYear();
             let mesIdx = -1;
             let textoCab = lineas.slice(0, headerIdx).join(' ').toUpperCase();
             const nombresMes = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
             nombresMes.forEach((nm, i) => { if(textoCab.indexOf(nm) !== -1) mesIdx = i; });
-            // Año si aparece en la cabecera (ej. 2026, 2025).
-            let mAnio = textoCab.match(/20\d{2}/); if(mAnio) anio = parseInt(mAnio[0], 10);
+            // Año: si aparece en la cabecera (ej. 2026, 2025) se usa ese; si NO, se usa el año
+            // seleccionado en la planilla (movAnioSel). Así podés cargar años viejos eligiéndolos.
+            let mAnio = textoCab.match(/20\d{2}/);
+            let anio = mAnio ? parseInt(mAnio[0], 10) : movAnioSel;
+            let anioDesdeCabecera = !!mAnio;
 
             let movs = [];
             let ultFechaIng = null, ultFechaEgr = null;
@@ -2817,7 +2857,7 @@
             // Totales calculados por canal/tipo.
             let totales = { ingreso: {credicoop:0,mp:0,efectivo:0}, egreso: {credicoop:0,mp:0,efectivo:0} };
             movs.forEach(mv => { let t = mv.tipo; ['credicoop','mp','efectivo'].forEach(c => totales[t][c] += (Number(mv[c])||0)); });
-            return { movs, anio, mesIdx, totales };
+            return { movs, anio, anioDesdeCabecera, mesIdx, totales };
         }
         // Crea un movimiento de la planilla con el monto en el canal correspondiente.
         function nuevoMovDesdeCanal(fecha, concepto, tipo, canal, monto) {
@@ -2848,7 +2888,9 @@
             let ti = res.totales.ingreso, te = res.totales.egreso;
             let totIng = ti.credicoop + ti.mp + ti.efectivo;
             let totEgr = te.credicoop + te.mp + te.efectivo;
-            let msg = `Se detectaron ${res.movs.length} movimientos para ${mesNombre} ${res.anio}.\n\n`
+            let origenAnio = res.anioDesdeCabecera ? 'detectado en el archivo' : `tomado del año seleccionado (${movAnioSel})`;
+            let msg = `Se detectaron ${res.movs.length} movimientos para ${mesNombre} ${res.anio}.\n`
+                + `(Año ${origenAnio}.)\n\n`
                 + `INGRESOS → CREDICOOP ${f(ti.credicoop)} · MP ${f(ti.mp)} · Efectivo ${f(ti.efectivo)}  = ${f(totIng)}\n`
                 + `EGRESOS → CREDICOOP ${f(te.credicoop)} · MP ${f(te.mp)} · Efectivo ${f(te.efectivo)}  = ${f(totEgr)}\n\n`;
             if(res.mesIdx >= 0) {
@@ -2861,18 +2903,16 @@
             let movs = asegurarMovimientos();
             // (b) Reemplazar: quitar los movimientos del mismo mes y año antes de cargar.
             if(res.mesIdx >= 0) {
-                movs = movs.filter(mv => {
-                    let p = (mv.fecha || '').split('-');
-                    let a = parseInt(p[0],10), mnum = parseInt(p[1],10);
-                    return !(a === res.anio && (mnum - 1) === res.mesIdx);
-                });
+                movs = movs.filter(mv => !(anioDeMov(mv) === res.anio && mesDeMov(mv) === res.mesIdx));
             }
             movs = movs.concat(res.movs);
             datosContables["_MOVIMIENTOS_"] = movs;
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
-            // Posicionar la vista en el mes importado para que se vea el resultado.
+            // Posicionar la vista en el mes/año importado para que se vea el resultado.
+            movAnioSel = res.anio;
             if(res.mesIdx >= 0) { movVistaAnual = false; movMesSel = res.mesIdx; }
+            movFiltroFechas = null;
             renderTablaFlujoCaja();
             alert(`✅ Importados ${res.movs.length} movimientos de ${mesNombre} ${res.anio}. No olvides tocar "☁️ Guardar" para respaldar en la nube.`);
         }
