@@ -148,7 +148,7 @@
         .mov-th-fecha-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; }
         .mov-filtro-fecha-btn { border: none; background: rgba(255,255,255,0.25); color: #fff; border-radius: 3px; cursor: pointer; font-size: .6rem; padding: 1px 5px; line-height: 1; }
         .mov-filtro-fecha-btn.activo { background: #f1c40f; color: #333; }
-        .mov-h-fecha { position: relative; }
+        .mov-h-fecha, .mov-h-concepto { position: relative; }
         .mov-fechas-panel { position: absolute; top: 100%; left: 0; margin-top: 2px; background: #fff; border: 1px solid var(--borde); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); z-index: 60; width: 150px; text-align: left; }
         .mov-fechas-acc { display: flex; gap: 4px; padding: 6px; border-bottom: 1px solid #eee; }
         .mov-fechas-acc button { flex: 1; border: 1px solid var(--borde); background: #f4f6f9; border-radius: 4px; font-size: .62rem; cursor: pointer; padding: 3px; color: var(--primary); font-weight: 600; }
@@ -156,6 +156,8 @@
         .mov-fecha-item { display: flex; align-items: center; gap: 6px; padding: 3px 2px; font-size: .72rem; font-weight: 400; color: #333; cursor: pointer; text-transform: none; letter-spacing: 0; }
         .mov-fecha-item input { cursor: pointer; }
         .mov-fecha-vacio { font-size: .68rem; color: #95a5a6; padding: 6px; }
+        .mov-conceptos-panel { width: 220px; }
+        .mov-conceptos-panel .mov-fecha-item { white-space: normal; }
         .mov-canal-click { cursor: pointer; }
         .mov-canal-click:hover { background: #46648f; }
         .mov-head-canales .mov-h-canal.canal-on { background: #f1c40f; color: #333; }
@@ -2347,6 +2349,8 @@
         let movOrdenTotal = null; // null | 'desc' | 'asc'
         let movFiltroFechas = null; // null = todas; o Set de fechas ISO seleccionadas
         let movPanelFechasAbierto = false; // si está desplegado el panel de selección de fechas
+        let movFiltroConceptos = null; // null = todos; o Set de conceptos seleccionados
+        let movPanelConceptosAbierto = false; // si está desplegado el panel de conceptos
 
         function asegurarMovimientos() {
             if(!datosContables) datosContables = inicializarDatosContables();
@@ -2530,6 +2534,16 @@
             }
             // 4) Filtro por fechas seleccionadas (tipo Excel). null = todas; Set = exactamente esas.
             if(movFiltroFechas) visibles = visibles.filter(o => movFiltroFechas.has(o.m.fecha));
+
+            // Conceptos disponibles (tras los filtros anteriores) para el selector tipo Excel.
+            let conceptosDisponibles = [...new Set(visibles.map(o => (o.m.concepto || '').trim()).filter(c => c))].sort((a,b)=>a.localeCompare(b,'es'));
+            if(movFiltroConceptos) {
+                let validos = new Set(conceptosDisponibles);
+                movFiltroConceptos = new Set([...movFiltroConceptos].filter(c => validos.has(c)));
+                if(movFiltroConceptos.size === conceptosDisponibles.length) movFiltroConceptos = null;
+            }
+            // 5) Filtro por conceptos seleccionados (tipo Excel).
+            if(movFiltroConceptos) visibles = visibles.filter(o => movFiltroConceptos.has((o.m.concepto || '').trim()));
             // 5) Orden: por total tiene prioridad si está activo; si no, por fecha.
             if(movOrdenTotal) {
                 visibles.sort((a, b) => {
@@ -2553,7 +2567,8 @@
             let flechaFecha = movOrdenFecha === 'asc' ? '▲' : (movOrdenFecha === 'desc' ? '▼' : '↕');
             let flechaTotal = movOrdenTotal === 'asc' ? '▲' : (movOrdenTotal === 'desc' ? '▼' : '↕');
             let hayFiltroFechas = !!movFiltroFechas;
-            let hayFiltros = movFiltroTipo !== 'todos' || movFiltroCanal !== 'todos' || movOrdenFecha || movOrdenTotal || hayFiltroFechas;
+            let hayFiltroConceptos = !!movFiltroConceptos;
+            let hayFiltros = movFiltroTipo !== 'todos' || movFiltroCanal !== 'todos' || movOrdenFecha || movOrdenTotal || hayFiltroFechas || hayFiltroConceptos;
 
             let h = `<div class="mov-wrap">`;
             // Encabezado con pestañas y acciones.
@@ -2613,6 +2628,23 @@
                 </div>`;
             }
 
+            // Panel de selección de conceptos tipo Excel.
+            let panelConceptos = '';
+            if(movPanelConceptosAbierto) {
+                let items = conceptosDisponibles.map(c => {
+                    let marcado = !movFiltroConceptos || movFiltroConceptos.has(c);
+                    let cEsc = escaparHTMLTexto(c).replace(/'/g, "\\'");
+                    return `<label class="mov-fecha-item"><input type="checkbox" ${marcado?'checked':''} onchange="toggleMovConcepto('${cEsc}', this.checked)"> ${escaparHTMLTexto(c)}</label>`;
+                }).join('') || '<div class="mov-fecha-vacio">Sin conceptos</div>';
+                panelConceptos = `<div class="mov-fechas-panel mov-conceptos-panel" onclick="event.stopPropagation()">
+                    <div class="mov-fechas-acc">
+                        <button onclick="seleccionarTodosConceptos(true)">Todos</button>
+                        <button onclick="seleccionarTodosConceptos(false)">Ninguno</button>
+                    </div>
+                    <div class="mov-fechas-lista">${items}</div>
+                </div>`;
+            }
+
             h += `<div class="mov-scroll"><table class="mov-tabla"><thead>
                 <tr class="mov-head-grupos">
                     <th class="mov-h-fecha" rowspan="2">
@@ -2622,7 +2654,13 @@
                         </div>
                         ${panelFechas}
                     </th>
-                    <th class="mov-h-concepto" rowspan="2">Concepto</th>
+                    <th class="mov-h-concepto" rowspan="2">
+                        <div class="mov-th-fecha-wrap">
+                            <span>Concepto</span>
+                            <button class="mov-filtro-fecha-btn ${hayFiltroConceptos?'activo':''}" onclick="toggleMovPanelConceptos(event)" title="Filtrar conceptos">▾</button>
+                        </div>
+                        ${panelConceptos}
+                    </th>
                     <th class="mov-h-tipo" rowspan="2">Tipo</th>
                     <th class="mov-h-medios" colspan="3">MEDIOS DE PAGO</th>
                     <th class="mov-h-total mov-th-orden" rowspan="2" onclick="ordenarMovTotal()" title="Ordenar por monto total">Total <span class="mov-flecha">${flechaTotal}</span></th>
@@ -2719,11 +2757,26 @@
             else { movFiltroFechas = new Set(); }
             renderPlanillaMovimientos();
         }
-        function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; movOrdenTotal = null; movFiltroFechas = null; movPanelFechasAbierto = false; renderPlanillaMovimientos(); }
+        function toggleMovPanelConceptos(e) { if(e) e.stopPropagation(); movPanelConceptosAbierto = !movPanelConceptosAbierto; renderPlanillaMovimientos(); }
+        function toggleMovConcepto(c, marcado) {
+            if(!movFiltroConceptos) {
+                let cont = document.getElementById('planilla-movimientos');
+                let todos = cont ? Array.from(cont.querySelectorAll('.mov-conceptos-panel .mov-fechas-lista label')).map(l => l.textContent.trim()) : [];
+                movFiltroConceptos = new Set(todos);
+            }
+            if(marcado) movFiltroConceptos.add(c); else movFiltroConceptos.delete(c);
+            renderPlanillaMovimientos();
+        }
+        function seleccionarTodosConceptos(todos) {
+            movFiltroConceptos = todos ? null : new Set();
+            renderPlanillaMovimientos();
+        }
+        function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; movOrdenTotal = null; movFiltroFechas = null; movPanelFechasAbierto = false; movFiltroConceptos = null; movPanelConceptosAbierto = false; renderPlanillaMovimientos(); }
         function toggleMovExportMenu(e) { if(e) e.stopPropagation(); let m = document.getElementById('movExportMenu'); if(m) m.classList.toggle('open'); }
         function cerrarMovExportMenu() { let m = document.getElementById('movExportMenu'); if(m) m.classList.remove('open'); }
         document.addEventListener('click', function(e){ let m = document.getElementById('movExportMenu'); if(m && m.classList.contains('open') && !e.target.closest('.mov-exportar-wrap')) m.classList.remove('open'); });
         document.addEventListener('click', function(e){ if(movPanelFechasAbierto && !e.target.closest('.mov-h-fecha')) { movPanelFechasAbierto = false; renderPlanillaMovimientos(); } });
+        document.addEventListener('click', function(e){ if(movPanelConceptosAbierto && !e.target.closest('.mov-h-concepto')) { movPanelConceptosAbierto = false; renderPlanillaMovimientos(); } });
 
         function agregarMovimiento() {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
