@@ -2868,7 +2868,8 @@
         function parseFechaCSVContable(s, anio) {
             if(!s) return null;
             let t = String(s).trim().replace(/"/g, '');
-            let m = t.match(/^(\d{1,2})[.\/](\d{1,2})$/);
+            // Tolera espacios alrededor del separador: "1.07", "1. 10", "31 . 10", etc.
+            let m = t.match(/^(\d{1,2})\s*[.\/]\s*(\d{1,2})$/);
             if(m) return `${anio}-${String(parseInt(m[2],10)).padStart(2,'0')}-${String(parseInt(m[1],10)).padStart(2,'0')}`;
             return null;
         }
