@@ -88,6 +88,8 @@
         .mov-btn-exp:hover { background: #1e8449; color: #fff; }
         .mov-btn-add { padding: 6px 14px; border: none; background: var(--verde); color: #fff; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
         .mov-btn-add:hover { background: #219653; }
+        .mov-btn-imp { padding: 6px 12px; border: 1px solid #8e44ad; background: #f4ecf7; color: #8e44ad; border-radius: 6px; font-weight: 700; font-size: .72rem; cursor: pointer; }
+        .mov-btn-imp:hover { background: #8e44ad; color: #fff; }
         .mov-titulo { font-weight: 700; color: var(--primary); font-size: .85rem; margin-bottom: 8px; }
         .mov-scroll { overflow-x: auto; }
         .mov-tabla { width: 100%; border-collapse: collapse; font-size: .76rem; min-width: 640px; }
@@ -2358,6 +2360,26 @@
             return (!isNaN(m) && m >= 1 && m <= 12) ? m - 1 : -1;
         }
 
+        // Conversión de fecha para mostrar: interna YYYY-MM-DD -> visible DD/MM/AA.
+        function fechaISOaDDMMAA(iso) {
+            if(!iso || typeof iso !== 'string' || iso.indexOf('-') === -1) return '';
+            let p = iso.split('-');
+            if(p.length < 3) return '';
+            return `${p[2]}/${p[1]}/${p[0].slice(-2)}`;
+        }
+        // Visible DD/MM/AA (o DD/MM/AAAA) -> interna YYYY-MM-DD. Devuelve '' si no parsea.
+        function fechaDDMMAAaISO(txt) {
+            if(!txt) return '';
+            let p = String(txt).trim().replace(/[.\-]/g, '/').split('/');
+            if(p.length < 2) return '';
+            let d = parseInt(p[0], 10), m = parseInt(p[1], 10);
+            let a = p[2] ? parseInt(p[2], 10) : new Date().getFullYear();
+            if(isNaN(d) || isNaN(m)) return '';
+            if(a < 100) a = 2000 + a; // AA -> 20AA
+            if(d < 1 || d > 31 || m < 1 || m > 12) return '';
+            return `${a}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        }
+
         // Totales de movimientos por mes (para integrar al resumen del flujo de caja).
         function totalesMovimientosPorMes() {
             let movs = asegurarMovimientos();
@@ -2486,8 +2508,10 @@
                             <button onclick="exportarMovimientosPDF(); cerrarMovExportMenu();">📄 PDF</button>
                         </div>
                     </div>
+                    ${puede ? `<button class="mov-btn-imp" onclick="document.getElementById('inputImportarCSV').click()">📥 Importar CSV</button>` : ''}
                     ${puede ? `<button class="mov-btn-add" onclick="agregarMovimiento()">➕ Agregar fila</button>` : ''}
                 </div>
+                <input type="file" id="inputImportarCSV" accept=".csv,text/csv" style="display:none" onchange="manejarArchivoCSV(this)">
             </div>`;
 
             h += `<div class="mov-titulo">📋 Planilla de ingresos y egresos ${movVistaAnual ? '(todo el año)' : '(' + mesesLista[movMesSel] + ')'}</div>`;
@@ -2529,7 +2553,7 @@
                     let mv = o.m, idx = o.i;
                     let esIng = mv.tipo === 'ingreso';
                     h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}">`;
-                    h += `<td class="mov-c-fecha"><input type="date" value="${mv.fecha || ''}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
+                    h += `<td class="mov-c-fecha"><input type="text" inputmode="numeric" placeholder="DD/MM/AA" value="${fechaISOaDDMMAA(mv.fecha)}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
                     h += `<td class="mov-c-concepto"><input type="text" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="Concepto..." ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'concepto',this.value)"></td>`;
                     h += `<td class="mov-c-tipo"><select class="${esIng ? 'tipo-ing' : 'tipo-egr'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'tipo',this.value)"><option value="ingreso" ${esIng?'selected':''}>Ingreso</option><option value="egreso" ${!esIng?'selected':''}>Egreso</option></select></td>`;
                     CANALES_MOV.forEach(c => {
@@ -2585,6 +2609,7 @@
             let movs = asegurarMovimientos();
             if(!movs[idx]) return;
             if(campo === 'credicoop' || campo === 'mp' || campo === 'efectivo') movs[idx][campo] = parseFloat(valor) || 0;
+            else if(campo === 'fecha') { let iso = fechaDDMMAAaISO(valor); if(iso) movs[idx].fecha = iso; }
             else movs[idx][campo] = valor;
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
@@ -2614,7 +2639,7 @@
             let movs = movimientosFiltrados();
             let sep = ';';
             let filas = [['Fecha', 'Concepto', 'Tipo', 'CREDICOOP', 'MP', 'Efectivo', 'Total']];
-            movs.forEach(m => filas.push([m.fecha || '', m.concepto || '', m.tipo || '', (Number(m.credicoop)||0), (Number(m.mp)||0), (Number(m.efectivo)||0), totalMov(m)]));
+            movs.forEach(m => filas.push([fechaISOaDDMMAA(m.fecha) || m.fecha || '', m.concepto || '', m.tipo || '', (Number(m.credicoop)||0), (Number(m.mp)||0), (Number(m.efectivo)||0), totalMov(m)]));
             let csv = filas.map(f => f.map(escaparCSV).join(sep)).join('\r\n');
             let blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             let suf = movVistaAnual ? 'anual' : mesesLista[movMesSel];
@@ -2629,7 +2654,7 @@
             let suf = movVistaAnual ? 'Todo el año' : mesesLista[movMesSel];
             doc.setFontSize(14); doc.text('CEPAS · Movimientos de Caja — ' + suf, 40, 40);
             doc.setFontSize(9); doc.text('Generado: ' + new Date().toLocaleString('es-AR'), 40, 58);
-            let body = movs.map(m => [m.fecha || '', m.concepto || '', (m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'), fmtMoneda(m.credicoop), fmtMoneda(m.mp), fmtMoneda(m.efectivo), fmtMoneda(totalMov(m))]);
+            let body = movs.map(m => [fechaISOaDDMMAA(m.fecha) || m.fecha || '', m.concepto || '', (m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'), fmtMoneda(m.credicoop), fmtMoneda(m.mp), fmtMoneda(m.efectivo), fmtMoneda(totalMov(m))]);
             let totIng = movs.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+totalMov(m),0);
             let totEgr = movs.filter(m=>m.tipo!=='ingreso').reduce((a,m)=>a+totalMov(m),0);
             doc.autoTable({
@@ -2645,6 +2670,130 @@
             doc.setTextColor(saldo >= 0 ? 39 : 192, saldo >= 0 ? 174 : 57, saldo >= 0 ? 96 : 43);
             doc.setFont(undefined, 'bold'); doc.text('SALDO: ' + fmtMoneda(saldo), 440, y);
             doc.save(`CEPAS_movimientos_caja_${movVistaAnual ? 'anual' : mesesLista[movMesSel]}_${new Date().getFullYear()}.pdf`);
+        }
+
+        // ---- IMPORTACIÓN DE CSV CONTABLE (formato planilla CEPAS) ----
+        function parseMontoCSVContable(s) {
+            if(s === undefined || s === null) return 0;
+            let t = String(s).trim().replace(/"/g, '').replace(/\s/g, '');
+            if(!t) return 0;
+            t = t.replace(/,/g, '');
+            let n = parseFloat(t);
+            return isNaN(n) ? 0 : n;
+        }
+        function parseFechaCSVContable(s, anio) {
+            if(!s) return null;
+            let t = String(s).trim().replace(/"/g, '');
+            let m = t.match(/^(\d{1,2})[.\/](\d{1,2})$/);
+            if(m) return `${anio}-${String(parseInt(m[2],10)).padStart(2,'0')}-${String(parseInt(m[1],10)).padStart(2,'0')}`;
+            return null;
+        }
+        function splitCSVLineContable(line) {
+            let out = [], cur = '', q = false;
+            for(let i = 0; i < line.length; i++) {
+                let c = line[i];
+                if(c === '"') q = !q;
+                else if(c === ',' && !q) { out.push(cur); cur = ''; }
+                else cur += c;
+            }
+            out.push(cur);
+            return out;
+        }
+        // Devuelve { movs, anio, mesNombre, totales } o { error }
+        function parsearCSVContable(texto) {
+            let lineas = texto.split(/\r\n|\n/);
+            let headerIdx = lineas.findIndex(l => /FECHA/i.test(l) && /CREDICOOP/i.test(l));
+            if(headerIdx === -1) return { error: 'No se reconoció el formato. Falta la fila de encabezado FECHA/CREDICOOP.' };
+            // Año e identificación del mes: buscamos nombre de mes en las primeras filas.
+            let anio = new Date().getFullYear();
+            let mesIdx = -1;
+            let textoCab = lineas.slice(0, headerIdx).join(' ').toUpperCase();
+            const nombresMes = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+            nombresMes.forEach((nm, i) => { if(textoCab.indexOf(nm) !== -1) mesIdx = i; });
+            // Año si aparece en la cabecera (ej. 2026, 2025).
+            let mAnio = textoCab.match(/20\d{2}/); if(mAnio) anio = parseInt(mAnio[0], 10);
+
+            let movs = [];
+            let ultFechaIng = null, ultFechaEgr = null;
+            for(let i = headerIdx + 1; i < lineas.length; i++) {
+                let row = splitCSVLineContable(lineas[i]);
+                if(row.every(c => !String(c).trim())) continue;
+                // Bloque INGRESOS: col 0=fecha, (1,2)(3,4)(5,6) = canal concepto/monto
+                let fIng = parseFechaCSVContable(row[0], anio); if(fIng) { ultFechaIng = fIng; if(mesIdx === -1) mesIdx = parseInt(fIng.split('-')[1],10)-1; }
+                [['credicoop',1,2],['mp',3,4],['efectivo',5,6]].forEach(([canal,ci,mi]) => {
+                    let concepto = String(row[ci]||'').trim().replace(/"/g,'');
+                    let monto = parseMontoCSVContable(row[mi]);
+                    if(concepto && monto > 0 && ultFechaIng) movs.push(nuevoMovDesdeCanal(ultFechaIng, concepto, 'ingreso', canal, monto));
+                });
+                // Bloque EGRESOS: col 8=fecha, (9,10)(11,12)(13,14)
+                let fEgr = parseFechaCSVContable(row[8], anio); if(fEgr) ultFechaEgr = fEgr;
+                [['credicoop',9,10],['mp',11,12],['efectivo',13,14]].forEach(([canal,ci,mi]) => {
+                    let concepto = String(row[ci]||'').trim().replace(/"/g,'');
+                    let monto = parseMontoCSVContable(row[mi]);
+                    if(concepto && monto > 0 && ultFechaEgr) movs.push(nuevoMovDesdeCanal(ultFechaEgr, concepto, 'egreso', canal, monto));
+                });
+            }
+            // Totales calculados por canal/tipo.
+            let totales = { ingreso: {credicoop:0,mp:0,efectivo:0}, egreso: {credicoop:0,mp:0,efectivo:0} };
+            movs.forEach(mv => { let t = mv.tipo; ['credicoop','mp','efectivo'].forEach(c => totales[t][c] += (Number(mv[c])||0)); });
+            return { movs, anio, mesIdx, totales };
+        }
+        // Crea un movimiento de la planilla con el monto en el canal correspondiente.
+        function nuevoMovDesdeCanal(fecha, concepto, tipo, canal, monto) {
+            let mv = { id: 'mv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), fecha, concepto, tipo, credicoop: 0, mp: 0, efectivo: 0 };
+            mv[canal] = monto;
+            return mv;
+        }
+
+        function manejarArchivoCSV(input) {
+            if(!puedeEditarCaja()) { alert('Acceso denegado.'); input.value=''; return; }
+            let file = input.files && input.files[0];
+            if(!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let texto = e.target.result;
+                let res = parsearCSVContable(texto);
+                input.value = ''; // permitir reimportar el mismo archivo
+                if(res.error) { alert('No se pudo importar: ' + res.error); return; }
+                if(res.movs.length === 0) { alert('No se detectaron movimientos en el archivo.'); return; }
+                confirmarImportacionCSV(res);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function confirmarImportacionCSV(res) {
+            let mesNombre = res.mesIdx >= 0 ? mesesLista[res.mesIdx] : '(mes no identificado)';
+            let f = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+            let ti = res.totales.ingreso, te = res.totales.egreso;
+            let totIng = ti.credicoop + ti.mp + ti.efectivo;
+            let totEgr = te.credicoop + te.mp + te.efectivo;
+            let msg = `Se detectaron ${res.movs.length} movimientos para ${mesNombre} ${res.anio}.\n\n`
+                + `INGRESOS → CREDICOOP ${f(ti.credicoop)} · MP ${f(ti.mp)} · Efectivo ${f(ti.efectivo)}  = ${f(totIng)}\n`
+                + `EGRESOS → CREDICOOP ${f(te.credicoop)} · MP ${f(te.mp)} · Efectivo ${f(te.efectivo)}  = ${f(totEgr)}\n\n`;
+            if(res.mesIdx >= 0) {
+                msg += `⚠️ Se REEMPLAZARÁN los movimientos existentes de ${mesNombre} ${res.anio} por los del archivo.\n\n¿Confirmás la importación?`;
+            } else {
+                msg += `No se pudo identificar el mes automáticamente; los movimientos se agregarán con las fechas detectadas.\n\n¿Confirmás la importación?`;
+            }
+            if(!confirm(msg)) return;
+
+            let movs = asegurarMovimientos();
+            // (b) Reemplazar: quitar los movimientos del mismo mes y año antes de cargar.
+            if(res.mesIdx >= 0) {
+                movs = movs.filter(mv => {
+                    let p = (mv.fecha || '').split('-');
+                    let a = parseInt(p[0],10), mnum = parseInt(p[1],10);
+                    return !(a === res.anio && (mnum - 1) === res.mesIdx);
+                });
+            }
+            movs = movs.concat(res.movs);
+            datosContables["_MOVIMIENTOS_"] = movs;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            // Posicionar la vista en el mes importado para que se vea el resultado.
+            if(res.mesIdx >= 0) { movVistaAnual = false; movMesSel = res.mesIdx; }
+            renderTablaFlujoCaja();
+            alert(`✅ Importados ${res.movs.length} movimientos de ${mesNombre} ${res.anio}. No olvides tocar "☁️ Guardar" para respaldar en la nube.`);
         }
 
         function abrirModalAjustes(mes) { mesAjusteActual = mes; document.getElementById('modalAjustesTitle').innerText = "Ajustes - " + mes; document.getElementById('ajDesc').value = ""; document.getElementById('ajMonto').value = ""; renderListaAjustes(); document.getElementById('modalAjustes').classList.add('open'); }
