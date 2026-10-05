@@ -2561,7 +2561,7 @@
                 <div class="mov-tabs">
                     <button class="mov-tab ${!movVistaAnual ? 'active' : ''}" onclick="setMovVista(false)">Mensual</button>
                     <button class="mov-tab ${movVistaAnual ? 'active' : ''}" onclick="setMovVista(true)">Anual</button>
-                    <select class="mov-anio-sel" onchange="setMovAnio(this.value)" title="Año">${aniosConMovimientos().map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join('')}</select>
+                    <select class="mov-anio-sel" onchange="setMovAnio(this.value)" title="Año">${aniosConMovimientos().map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join('')}<option value="__nuevo__">➕ Nuevo año...</option></select>
                     ${!movVistaAnual ? `<select class="mov-mes-sel" onchange="setMovMes(this.value)">${mesesLista.map((mm,i)=>{let tiene=mesTieneMovimientos(i,movAnioSel);return `<option value="${i}" ${i===movMesSel?'selected':''}>${tiene?'📊 ':'▫️ '}${mm}${tiene?'':' (sin datos)'}</option>`;}).join('')}</select>` : ''}
                 </div>
                 <div class="mov-acciones">
@@ -2672,7 +2672,19 @@
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
         function setMovMes(i) { movMesSel = parseInt(i, 10) || 0; movFiltroFechas = null; renderPlanillaMovimientos(); }
-        function setMovAnio(a) { movAnioSel = parseInt(a, 10) || new Date().getFullYear(); movFiltroFechas = null; renderPlanillaMovimientos(); }
+        function setMovAnio(a) {
+            if(a === '__nuevo__') {
+                let ingresado = prompt('¿Qué año querés agregar? (ej. 2025)', String(new Date().getFullYear() - 1));
+                if(ingresado === null) { renderPlanillaMovimientos(); return; } // canceló: re-render para restaurar el select
+                let n = parseInt(String(ingresado).trim(), 10);
+                if(isNaN(n) || n < 2000 || n > 2100) { alert('Ingresá un año válido entre 2000 y 2100.'); renderPlanillaMovimientos(); return; }
+                movAnioSel = n;
+            } else {
+                movAnioSel = parseInt(a, 10) || new Date().getFullYear();
+            }
+            movFiltroFechas = null;
+            renderPlanillaMovimientos();
+        }
 
         function limpiarMesMovimientos() {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
