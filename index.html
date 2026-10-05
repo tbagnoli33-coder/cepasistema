@@ -137,6 +137,25 @@
         .mov-fclear { padding: 4px 10px; border: 1px solid #e6a6a0; background: #fdeaea; color: #c0392b; border-radius: 20px; font-size: .7rem; font-weight: 600; cursor: pointer; }
         .mov-th-orden { cursor: pointer; user-select: none; }
         .mov-th-orden .mov-flecha { font-size: .65rem; opacity: .8; }
+        /* Encabezados fijos dentro del scroll de la tabla (no de la página) */
+        .mov-scroll { overflow: auto; max-height: 62vh; }
+        .mov-tabla thead th { position: sticky; z-index: 5; }
+        .mov-tabla thead tr.mov-head-grupos th { top: 0; }
+        .mov-tabla thead tr.mov-head-canales th { top: 28px; }
+        .mov-th-fecha-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .mov-filtro-fecha-btn { border: none; background: rgba(255,255,255,0.25); color: #fff; border-radius: 3px; cursor: pointer; font-size: .6rem; padding: 1px 5px; line-height: 1; }
+        .mov-filtro-fecha-btn.activo { background: #f1c40f; color: #333; }
+        .mov-h-fecha { position: relative; }
+        .mov-fechas-panel { position: absolute; top: 100%; left: 0; margin-top: 2px; background: #fff; border: 1px solid var(--borde); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); z-index: 60; width: 150px; text-align: left; }
+        .mov-fechas-acc { display: flex; gap: 4px; padding: 6px; border-bottom: 1px solid #eee; }
+        .mov-fechas-acc button { flex: 1; border: 1px solid var(--borde); background: #f4f6f9; border-radius: 4px; font-size: .62rem; cursor: pointer; padding: 3px; color: var(--primary); font-weight: 600; }
+        .mov-fechas-lista { max-height: 180px; overflow-y: auto; padding: 4px 6px; }
+        .mov-fecha-item { display: flex; align-items: center; gap: 6px; padding: 3px 2px; font-size: .72rem; font-weight: 400; color: #333; cursor: pointer; text-transform: none; letter-spacing: 0; }
+        .mov-fecha-item input { cursor: pointer; }
+        .mov-fecha-vacio { font-size: .68rem; color: #95a5a6; padding: 6px; }
+        .mov-canal-click { cursor: pointer; }
+        .mov-canal-click:hover { background: #46648f; }
+        .mov-head-canales .mov-h-canal.canal-on { background: #f1c40f; color: #333; }
         .mov-exportar-wrap { position: relative; display: inline-block; }
         .mov-export-menu { display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid var(--borde); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); z-index: 50; min-width: 150px; overflow: hidden; }
         .mov-export-menu.open { display: block; }
@@ -2321,6 +2340,9 @@
         let movFiltroTipo = 'todos'; // 'todos' | 'ingreso' | 'egreso'
         let movFiltroCanal = 'todos'; // 'todos' | 'credicoop' | 'mp' | 'efectivo'
         let movOrdenFecha = null; // null | 'asc' | 'desc'
+        let movOrdenTotal = null; // null | 'desc' | 'asc'
+        let movFiltroFechas = null; // null = todas; o Set de fechas ISO seleccionadas
+        let movPanelFechasAbierto = false; // si está desplegado el panel de selección de fechas
 
         function asegurarMovimientos() {
             if(!datosContables) datosContables = inicializarDatosContables();
@@ -2474,8 +2496,24 @@
             if(movFiltroTipo !== 'todos') visibles = visibles.filter(o => (o.m.tipo === 'ingreso' ? 'ingreso' : 'egreso') === movFiltroTipo);
             // 3) Filtro por canal (solo filas con monto en ese canal).
             if(movFiltroCanal !== 'todos') visibles = visibles.filter(o => (Number(o.m[movFiltroCanal]) || 0) !== 0);
-            // 4) Orden por fecha.
-            if(movOrdenFecha) {
+            // Fechas disponibles (tras vista/tipo/canal) para el selector tipo Excel.
+            let fechasDisponibles = [...new Set(visibles.map(o => o.m.fecha).filter(Boolean))].sort();
+            // Limpiar del filtro de fechas las que ya no existen en el conjunto actual.
+            if(movFiltroFechas) {
+                let validas = new Set(fechasDisponibles);
+                movFiltroFechas = new Set([...movFiltroFechas].filter(f => validas.has(f)));
+                // Si están todas seleccionadas, equivale a "sin filtro".
+                if(movFiltroFechas.size === fechasDisponibles.length) movFiltroFechas = null;
+            }
+            // 4) Filtro por fechas seleccionadas (tipo Excel). null = todas; Set = exactamente esas.
+            if(movFiltroFechas) visibles = visibles.filter(o => movFiltroFechas.has(o.m.fecha));
+            // 5) Orden: por total tiene prioridad si está activo; si no, por fecha.
+            if(movOrdenTotal) {
+                visibles.sort((a, b) => {
+                    let ta = totalMov(a.m), tb = totalMov(b.m);
+                    return movOrdenTotal === 'asc' ? ta - tb : tb - ta;
+                });
+            } else if(movOrdenFecha) {
                 visibles.sort((a, b) => {
                     let fa = a.m.fecha || '', fb = b.m.fecha || '';
                     return movOrdenFecha === 'asc' ? fa.localeCompare(fb) : fb.localeCompare(fa);
@@ -2490,7 +2528,9 @@
             let saldo = totalIng - totalEgr;
 
             let flechaFecha = movOrdenFecha === 'asc' ? '▲' : (movOrdenFecha === 'desc' ? '▼' : '↕');
-            let hayFiltros = movFiltroTipo !== 'todos' || movFiltroCanal !== 'todos' || movOrdenFecha;
+            let flechaTotal = movOrdenTotal === 'asc' ? '▲' : (movOrdenTotal === 'desc' ? '▼' : '↕');
+            let hayFiltroFechas = !!movFiltroFechas;
+            let hayFiltros = movFiltroTipo !== 'todos' || movFiltroCanal !== 'todos' || movOrdenFecha || movOrdenTotal || hayFiltroFechas;
 
             let h = `<div class="mov-wrap">`;
             // Encabezado con pestañas y acciones.
@@ -2532,17 +2572,39 @@
                 ${hayFiltros ? `<button class="mov-fclear" onclick="limpiarMovFiltros()">✖ Limpiar</button>` : ''}
             </div>`;
 
+            // Panel de selección de fechas tipo Excel.
+            let panelFechas = '';
+            if(movPanelFechasAbierto) {
+                let items = fechasDisponibles.map(f => {
+                    let marcado = !movFiltroFechas || movFiltroFechas.has(f);
+                    return `<label class="mov-fecha-item"><input type="checkbox" value="${f}" ${marcado?'checked':''} onchange="toggleMovFecha('${f}', this.checked)"> ${fechaISOaDDMMAA(f)}</label>`;
+                }).join('') || '<div class="mov-fecha-vacio">Sin fechas</div>';
+                panelFechas = `<div class="mov-fechas-panel" onclick="event.stopPropagation()">
+                    <div class="mov-fechas-acc">
+                        <button onclick="seleccionarTodasFechas(true)">Todas</button>
+                        <button onclick="seleccionarTodasFechas(false)">Ninguna</button>
+                    </div>
+                    <div class="mov-fechas-lista">${items}</div>
+                </div>`;
+            }
+
             h += `<div class="mov-scroll"><table class="mov-tabla"><thead>
                 <tr class="mov-head-grupos">
-                    <th class="mov-h-fecha mov-th-orden" rowspan="2" onclick="ordenarMovFecha()" title="Ordenar por fecha">Fecha <span class="mov-flecha">${flechaFecha}</span></th>
+                    <th class="mov-h-fecha" rowspan="2">
+                        <div class="mov-th-fecha-wrap">
+                            <span class="mov-th-orden" onclick="ordenarMovFecha()" title="Ordenar por fecha">Fecha <span class="mov-flecha">${flechaFecha}</span></span>
+                            <button class="mov-filtro-fecha-btn ${hayFiltroFechas?'activo':''}" onclick="toggleMovPanelFechas(event)" title="Filtrar fechas">▾</button>
+                        </div>
+                        ${panelFechas}
+                    </th>
                     <th class="mov-h-concepto" rowspan="2">Concepto</th>
                     <th class="mov-h-tipo" rowspan="2">Tipo</th>
                     <th class="mov-h-medios" colspan="3">MEDIOS DE PAGO</th>
-                    <th class="mov-h-total" rowspan="2">Total</th>
+                    <th class="mov-h-total mov-th-orden" rowspan="2" onclick="ordenarMovTotal()" title="Ordenar por monto total">Total <span class="mov-flecha">${flechaTotal}</span></th>
                     ${puede ? '<th class="mov-h-acc" rowspan="2"></th>' : ''}
                 </tr>
                 <tr class="mov-head-canales">
-                    ${CANALES_MOV.map(c => `<th class="mov-h-canal">${c.label}</th>`).join('')}
+                    ${CANALES_MOV.map(c => `<th class="mov-h-canal mov-canal-click ${movFiltroCanal===c.k?'canal-on':''}" onclick="toggleMovFiltroCanal('${c.k}')" title="Ver solo ${c.label}">${c.label}${movFiltroCanal===c.k?' ✓':''}</th>`).join('')}
                 </tr>
             </thead><tbody>`;
 
@@ -2587,11 +2649,30 @@
         function setMovMes(i) { movMesSel = parseInt(i, 10) || 0; renderPlanillaMovimientos(); }
         function setMovFiltroTipo(t) { movFiltroTipo = t; renderPlanillaMovimientos(); }
         function setMovFiltroCanal(c) { movFiltroCanal = c; renderPlanillaMovimientos(); }
-        function ordenarMovFecha() { movOrdenFecha = movOrdenFecha === 'asc' ? 'desc' : 'asc'; renderPlanillaMovimientos(); }
-        function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; renderPlanillaMovimientos(); }
+        function toggleMovFiltroCanal(c) { movFiltroCanal = (movFiltroCanal === c) ? 'todos' : c; renderPlanillaMovimientos(); }
+        function ordenarMovFecha() { movOrdenTotal = null; movOrdenFecha = movOrdenFecha === 'asc' ? 'desc' : 'asc'; renderPlanillaMovimientos(); }
+        function ordenarMovTotal() { movOrdenFecha = null; movOrdenTotal = movOrdenTotal === 'desc' ? 'asc' : 'desc'; renderPlanillaMovimientos(); }
+        function toggleMovPanelFechas(e) { if(e) e.stopPropagation(); movPanelFechasAbierto = !movPanelFechasAbierto; renderPlanillaMovimientos(); }
+        function toggleMovFecha(f, marcado) {
+            // Si aún no hay filtro, arranca con "todas marcadas" y luego aplica el cambio.
+            if(!movFiltroFechas) {
+                let cont = document.getElementById('planilla-movimientos');
+                let todas = cont ? Array.from(cont.querySelectorAll('.mov-fechas-lista input[type=checkbox]')).map(c => c.value) : [];
+                movFiltroFechas = new Set(todas);
+            }
+            if(marcado) movFiltroFechas.add(f); else movFiltroFechas.delete(f);
+            renderPlanillaMovimientos();
+        }
+        function seleccionarTodasFechas(todas) {
+            if(todas) { movFiltroFechas = null; }
+            else { movFiltroFechas = new Set(); }
+            renderPlanillaMovimientos();
+        }
+        function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; movOrdenTotal = null; movFiltroFechas = null; movPanelFechasAbierto = false; renderPlanillaMovimientos(); }
         function toggleMovExportMenu(e) { if(e) e.stopPropagation(); let m = document.getElementById('movExportMenu'); if(m) m.classList.toggle('open'); }
         function cerrarMovExportMenu() { let m = document.getElementById('movExportMenu'); if(m) m.classList.remove('open'); }
         document.addEventListener('click', function(e){ let m = document.getElementById('movExportMenu'); if(m && m.classList.contains('open') && !e.target.closest('.mov-exportar-wrap')) m.classList.remove('open'); });
+        document.addEventListener('click', function(e){ if(movPanelFechasAbierto && !e.target.closest('.mov-h-fecha')) { movPanelFechasAbierto = false; renderPlanillaMovimientos(); } });
 
         function agregarMovimiento() {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
