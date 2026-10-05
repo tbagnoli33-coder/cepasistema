@@ -158,6 +158,17 @@
         .mov-fecha-vacio { font-size: .68rem; color: #95a5a6; padding: 6px; }
         .mov-conceptos-panel { width: 220px; }
         .mov-conceptos-panel .mov-fecha-item { white-space: normal; }
+        .mov-graf-wrap { margin-top: 16px; border-top: 1px solid var(--borde); padding-top: 12px; }
+        .mov-graf-toggle { background: #f4f6f9; border: 1px solid var(--borde); border-radius: 6px; padding: 8px 14px; font-weight: 700; font-size: .8rem; color: var(--primary); cursor: pointer; }
+        .mov-graf-toggle:hover { background: #e8edf2; }
+        .mov-graf-panel { margin-top: 12px; }
+        .mov-graf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .mov-graf-tabs { display: flex; gap: 6px; }
+        .mov-graf-tab { padding: 6px 14px; border: 1px solid var(--borde); background: #fff; border-radius: 6px; font-weight: 700; font-size: .75rem; cursor: pointer; color: #555; }
+        .mov-graf-tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .mov-graf-rango { padding: 6px 10px; border: 1px solid var(--borde); border-radius: 6px; font-family: inherit; font-size: .75rem; cursor: pointer; }
+        .mov-graf-canvas-box { position: relative; height: 300px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 10px; }
+        .mov-graf-leyenda { margin-top: 8px; font-size: .74rem; color: #555; display: flex; flex-wrap: wrap; gap: 10px; }
         .mov-canal-click { cursor: pointer; }
         .mov-canal-click:hover { background: #46648f; }
         .mov-head-canales .mov-h-canal.canal-on { background: #f1c40f; color: #333; }
@@ -2351,6 +2362,10 @@
         let movPanelFechasAbierto = false; // si está desplegado el panel de selección de fechas
         let movFiltroConceptos = null; // null = todos; o Set de conceptos seleccionados
         let movPanelConceptosAbierto = false; // si está desplegado el panel de conceptos
+        let movGraficoAbierto = false; // panel de gráficos desplegado
+        let movGraficoTipo = 'lineas'; // 'lineas' | 'burbujas'
+        let movGraficoRango = 'anual'; // 'anual' | 'sem1' | 'sem2' | 'mensual'
+        let chartNetoInstance = null, chartBurbujasInstance = null;
 
         function asegurarMovimientos() {
             if(!datosContables) datosContables = inicializarDatosContables();
@@ -2703,9 +2718,34 @@
             h += `<div class="mov-saldo ${saldo >= 0 ? 'mov-saldo-pos' : 'mov-saldo-neg'}">
                 ${saldo >= 0 ? '🟢 SALDO (entrada neta)' : '🔴 SALDO (salida neta)'}: $ ${Math.abs(saldo).toLocaleString('es-AR')} ${saldo < 0 ? '(negativo)' : ''}
             </div>`;
+
+            // Módulo de gráficos (colapsable).
+            h += `<div class="mov-graf-wrap">
+                <button class="mov-graf-toggle" onclick="toggleMovGrafico()">${movGraficoAbierto ? '▼' : '▶'} 📈 Gráficos de ${movAnioSel}</button>`;
+            if(movGraficoAbierto) {
+                h += `<div class="mov-graf-panel">
+                    <div class="mov-graf-controls">
+                        <div class="mov-graf-tabs">
+                            <button class="mov-graf-tab ${movGraficoTipo==='lineas'?'on':''}" onclick="setMovGraficoTipo('lineas')">📉 Neto por mes</button>
+                            <button class="mov-graf-tab ${movGraficoTipo==='burbujas'?'on':''}" onclick="setMovGraficoTipo('burbujas')">🫧 Conceptos</button>
+                        </div>
+                        <select class="mov-graf-rango" onchange="setMovGraficoRango(this.value)">
+                            <option value="anual" ${movGraficoRango==='anual'?'selected':''}>Año completo</option>
+                            <option value="sem1" ${movGraficoRango==='sem1'?'selected':''}>1er semestre (Ene-Jun)</option>
+                            <option value="sem2" ${movGraficoRango==='sem2'?'selected':''}>2do semestre (Jul-Dic)</option>
+                            <option value="mensual" ${movGraficoRango==='mensual'?'selected':''}>Mes actual (${mesesLista[movMesSel]})</option>
+                        </select>
+                    </div>
+                    <div class="mov-graf-canvas-box"><canvas id="movChartCanvas"></canvas></div>
+                    <div class="mov-graf-leyenda" id="movGrafLeyenda"></div>
+                </div>`;
+            }
+            h += `</div>`;
+
             h += `</div>`;
             cont.innerHTML = h;
             bloquearEdicionContableSiCorresponde();
+            if(movGraficoAbierto) renderMovChart();
         }
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
@@ -2772,6 +2812,140 @@
             renderPlanillaMovimientos();
         }
         function limpiarMovFiltros() { movFiltroTipo = 'todos'; movFiltroCanal = 'todos'; movOrdenFecha = null; movOrdenTotal = null; movFiltroFechas = null; movPanelFechasAbierto = false; movFiltroConceptos = null; movPanelConceptosAbierto = false; renderPlanillaMovimientos(); }
+
+        // ---- MÓDULO DE GRÁFICOS DE CAJA ----
+        function toggleMovGrafico() { movGraficoAbierto = !movGraficoAbierto; renderPlanillaMovimientos(); }
+        function setMovGraficoTipo(t) { movGraficoTipo = t; renderPlanillaMovimientos(); }
+        function setMovGraficoRango(r) { movGraficoRango = r; renderPlanillaMovimientos(); }
+
+        // Normaliza un concepto para agrupar variantes (ej. "Cuota socios"/"Cuotas socias").
+        function conceptoAgrupado(txt) {
+            let n = normalizarNombre(txt).toLowerCase();
+            if(n.indexOf('cuota') !== -1 && n.indexOf('soci') !== -1) return 'Cuotas sociales';
+            if(n.indexOf('taller') !== -1) return 'Talleres';
+            if(n.indexOf('alquiler') !== -1) return 'Alquileres';
+            if(n.indexOf('buffet') !== -1) return 'Buffet';
+            if(n.indexOf('impuesto') !== -1) return 'Impuestos';
+            if(n.indexOf('grafica') !== -1 || n.indexOf('libreria') !== -1) return 'Gráfica/Librería';
+            if(n.indexOf('comida') !== -1 || n.indexOf('almacen') !== -1 || n.indexOf('almuerzo') !== -1 || n.indexOf('panaderia') !== -1) return 'Comida/Almacén';
+            if(n.indexOf('servicio') !== -1 || n.indexOf('metrogas') !== -1 || n.indexOf('edenor') !== -1 || n.indexOf('aysa') !== -1 || n.indexOf('telecentro') !== -1 || n.indexOf('luz')!==-1 || n.indexOf('gas')!==-1) return 'Servicios';
+            if(n.indexOf('seguro') !== -1) return 'Seguros';
+            if(n.indexOf('jardin') !== -1) return 'Jardinería';
+            if(n.indexOf('transf') !== -1 || n.indexOf('fede') !== -1 || n.indexOf('tomas') !== -1) return 'Transferencias';
+            if(n.indexOf('facebook') !== -1 || n.indexOf('google') !== -1 || n.indexOf('canva') !== -1 || n.indexOf('instagram') !== -1 || n.indexOf('publicidad') !== -1 || n.indexOf('pauta') !== -1) return 'Publicidad/Digital';
+            // Si no cae en ningún grupo, usa el concepto tal cual (capitalizado).
+            let t = String(txt || '').trim();
+            return t ? (t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()) : '(sin concepto)';
+        }
+
+        // Movimientos del año seleccionado dentro del rango del gráfico.
+        function movsDelRangoGrafico() {
+            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === movAnioSel);
+            if(movGraficoRango === 'sem1') return movs.filter(m => mesDeMov(m) >= 0 && mesDeMov(m) <= 5);
+            if(movGraficoRango === 'sem2') return movs.filter(m => mesDeMov(m) >= 6 && mesDeMov(m) <= 11);
+            if(movGraficoRango === 'mensual') return movs.filter(m => mesDeMov(m) === movMesSel);
+            return movs; // anual
+        }
+
+        function renderMovChart() {
+            let canvas = document.getElementById('movChartCanvas');
+            if(!canvas || typeof Chart === 'undefined') return;
+            if(chartNetoInstance) { chartNetoInstance.destroy(); chartNetoInstance = null; }
+            if(chartBurbujasInstance) { chartBurbujasInstance.destroy(); chartBurbujasInstance = null; }
+            let leyenda = document.getElementById('movGrafLeyenda');
+            if(leyenda) leyenda.innerHTML = '';
+
+            if(movGraficoTipo === 'lineas') renderChartNeto(canvas, leyenda);
+            else renderChartBurbujas(canvas, leyenda);
+        }
+
+        function renderChartNeto(canvas, leyenda) {
+            let movs = asegurarMovimientos().filter(m => anioDeMov(m) === movAnioSel);
+            let labels = [], datos = [];
+            if(movGraficoRango === 'mensual') {
+                // Neto acumulado día a día del mes seleccionado.
+                let delMes = movs.filter(m => mesDeMov(m) === movMesSel).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+                let acum = 0, porDia = {};
+                delMes.forEach(m => { let d = (m.fecha||'').split('-')[2] || '?'; let signo = m.tipo==='ingreso'?1:-1; porDia[d] = (porDia[d]||0) + signo*totalMov(m); });
+                Object.keys(porDia).sort().forEach(d => { acum += porDia[d]; labels.push(d); datos.push(acum); });
+                if(labels.length === 0) { labels = ['—']; datos = [0]; }
+            } else {
+                // Neto por mes (anual o semestral).
+                let rango = movGraficoRango === 'sem1' ? [0,5] : (movGraficoRango === 'sem2' ? [6,11] : [0,11]);
+                for(let i = rango[0]; i <= rango[1]; i++) {
+                    let delMes = movs.filter(m => mesDeMov(m) === i);
+                    let neto = delMes.reduce((a,m)=> a + (m.tipo==='ingreso'?1:-1)*totalMov(m), 0);
+                    labels.push(mesesLista[i]); datos.push(neto);
+                }
+            }
+            let colores = datos.map(v => v >= 0 ? '#27ae60' : '#c0392b');
+            chartNetoInstance = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [{
+                    label: 'Neto', data: datos,
+                    borderColor: '#2c3e50', backgroundColor: 'rgba(44,62,80,0.08)', fill: true,
+                    tension: 0.25, pointRadius: 5, pointBackgroundColor: colores, pointBorderColor: colores
+                }]},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false },
+                        tooltip: { callbacks: { label: c => 'Neto: $ ' + Math.round(c.parsed.y).toLocaleString('es-AR') } } },
+                    scales: { y: { ticks: { callback: v => '$ ' + Number(v).toLocaleString('es-AR') } } }
+                }
+            });
+            let totalNeto = datos.reduce((a,b)=>a+b,0);
+            if(leyenda) leyenda.innerHTML = `<span>Neto ${movGraficoRango==='mensual'?'acumulado del mes':'del período'}: <b style="color:${totalNeto>=0?'#27ae60':'#c0392b'}">$ ${totalNeto.toLocaleString('es-AR')}</b></span> · <span style="color:#27ae60;">● positivo</span> <span style="color:#c0392b;">● negativo</span>`;
+        }
+
+        function renderChartBurbujas(canvas, leyenda) {
+            let movs = movsDelRangoGrafico();
+            // Agrupar por concepto normalizado y tipo.
+            let grupos = {}; // clave -> { concepto, tipo, total, cantidad }
+            movs.forEach(m => {
+                let g = conceptoAgrupado(m.concepto);
+                let key = g + '|' + m.tipo;
+                if(!grupos[key]) grupos[key] = { concepto: g, tipo: m.tipo, total: 0, cantidad: 0 };
+                grupos[key].total += totalMov(m);
+                grupos[key].cantidad++;
+            });
+            let arr = Object.values(grupos).sort((a,b)=>b.total-a.total).slice(0, 15);
+            if(arr.length === 0) {
+                let ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+                if(leyenda) leyenda.innerHTML = '<span style="color:#95a5a6;">Sin datos en el período.</span>';
+                return;
+            }
+            let maxTotal = Math.max(...arr.map(g=>g.total));
+            // x = cantidad de movimientos, y = monto total, r = tamaño proporcional al monto.
+            let puntos = arr.map((g,i) => ({
+                x: g.cantidad, y: g.total,
+                r: 8 + Math.sqrt(g.total/maxTotal) * 32,
+                _g: g
+            }));
+            let coloresIng = 'rgba(39,174,96,0.55)', coloresEgr = 'rgba(192,57,43,0.55)';
+            chartBurbujasInstance = new Chart(canvas.getContext('2d'), {
+                type: 'bubble',
+                data: { datasets: [
+                    { label: 'Ingresos', data: puntos.filter(p=>p._g.tipo==='ingreso'), backgroundColor: coloresIng, borderColor: '#1e8449' },
+                    { label: 'Egresos', data: puntos.filter(p=>p._g.tipo!=='ingreso'), backgroundColor: coloresEgr, borderColor: '#c0392b' }
+                ]},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: c => { let g = c.raw._g; return `${g.concepto} (${g.tipo}): $ ${Math.round(g.total).toLocaleString('es-AR')} · ${g.cantidad} mov.`; } } }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Cantidad de movimientos' }, beginAtZero: true },
+                        y: { title: { display: true, text: 'Monto total ($)' }, beginAtZero: true, ticks: { callback: v => '$ ' + Number(v).toLocaleString('es-AR') } }
+                    }
+                }
+            });
+            // Leyenda textual con el top de conceptos.
+            if(leyenda) {
+                let top = arr.slice(0,6).map(g => `<span style="white-space:nowrap;">${g.tipo==='ingreso'?'🟢':'🔴'} <b>${escaparHTMLTexto(g.concepto)}</b>: $ ${Math.round(g.total).toLocaleString('es-AR')}</span>`).join(' · ');
+                leyenda.innerHTML = top;
+            }
+        }
         function toggleMovExportMenu(e) { if(e) e.stopPropagation(); let m = document.getElementById('movExportMenu'); if(m) m.classList.toggle('open'); }
         function cerrarMovExportMenu() { let m = document.getElementById('movExportMenu'); if(m) m.classList.remove('open'); }
         document.addEventListener('click', function(e){ let m = document.getElementById('movExportMenu'); if(m && m.classList.contains('open') && !e.target.closest('.mov-exportar-wrap')) m.classList.remove('open'); });
