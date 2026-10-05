@@ -2859,9 +2859,11 @@
         // ---- IMPORTACIÓN DE CSV CONTABLE (formato planilla CEPAS) ----
         function parseMontoCSVContable(s) {
             if(s === undefined || s === null) return 0;
-            let t = String(s).trim().replace(/"/g, '').replace(/\s/g, '');
+            let t = String(s).trim().replace(/"/g, '');
             if(!t) return 0;
-            t = t.replace(/,/g, '');
+            // Quita símbolos de moneda, espacios y cualquier texto; deja dígitos, coma, punto y signo.
+            // Formato esperado: miles con coma, decimales con punto (ej. "$ 53,000.00").
+            t = t.replace(/[^0-9,.-]/g, '').replace(/,/g, '');
             let n = parseFloat(t);
             return isNaN(n) ? 0 : n;
         }
@@ -2893,32 +2895,62 @@
         // Devuelve { movs, anio, mesNombre, totales } o { error }
         function parsearCSVContable(texto) {
             let lineas = texto.split(/\r\n|\n/);
-            let headerIdx = lineas.findIndex(l => /FECHA/i.test(l) && /CREDICOOP/i.test(l));
-            if(headerIdx === -1) return { error: 'No se reconoció el formato. Falta la fila de encabezado FECHA/CREDICOOP.' };
-            // Año e identificación del mes: buscamos nombre de mes en las primeras filas.
-            let mesIdx = -1;
-            let textoCab = lineas.slice(0, headerIdx).join(' ').toUpperCase();
+            // Detección de formato:
+            //  - NUEVO: encabezado con FECHA + CREDICOOP (canales como columnas).
+            //  - ANTIGUO (marzo 2025 y antes): encabezado con "Origen" + "Descripción" + "Valor"
+            //    (el medio de pago está en la columna "Origen", 1 movimiento por celda).
+            let idxNuevo = lineas.findIndex(l => /FECHA/i.test(l) && /CREDICOOP/i.test(l));
+            if(idxNuevo !== -1) return parsearCSVFormatoNuevo(lineas, idxNuevo);
+            let idxAntiguo = lineas.findIndex(l => /ORIGEN/i.test(l) && /DESCRIPCI/i.test(l) && /VALOR/i.test(l));
+            if(idxAntiguo !== -1) return parsearCSVFormatoAntiguo(lineas, idxAntiguo);
+            return { error: 'No se reconoció el formato del CSV (ni el actual ni el formato antiguo con columna Origen).' };
+        }
+
+        // Deriva mes (0-11) y año a partir de la cabecera + fechas de los movimientos.
+        function derivarMesAnioMovs(movs, textoCab) {
             const nombresMes = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-            nombresMes.forEach((nm, i) => { if(textoCab.indexOf(nm) !== -1) mesIdx = i; });
-            // Año: si aparece en la cabecera (ej. 2026, 2025) se usa ese; si NO, se usa el año
-            // seleccionado en la planilla (movAnioSel). Así podés cargar años viejos eligiéndolos.
-            let mAnio = textoCab.match(/20\d{2}/);
+            let mesIdx = -1;
+            let cab = (textoCab || '').toUpperCase();
+            nombresMes.forEach((nm, i) => { if(cab.indexOf(nm) !== -1) mesIdx = i; });
+            let mAnio = cab.match(/20\d{2}/);
             let anio = mAnio ? parseInt(mAnio[0], 10) : movAnioSel;
             let anioDesdeCabecera = !!mAnio;
+            // Si las fechas traen año propio, ese año manda.
+            let aniosEnMovs = [...new Set(movs.map(mv => parseInt((mv.fecha||'').split('-')[0],10)).filter(a => !isNaN(a)))];
+            if(aniosEnMovs.length === 1) { anio = aniosEnMovs[0]; anioDesdeCabecera = true; }
+            if(mesIdx === -1 && movs.length > 0) { let m = parseInt((movs[0].fecha||'').split('-')[1],10); if(!isNaN(m)) mesIdx = m-1; }
+            return { mesIdx, anio, anioDesdeCabecera };
+        }
+        function totalesDeMovs(movs) {
+            let totales = { ingreso: {credicoop:0,mp:0,efectivo:0}, egreso: {credicoop:0,mp:0,efectivo:0} };
+            movs.forEach(mv => { let t = mv.tipo; ['credicoop','mp','efectivo'].forEach(c => totales[t][c] += (Number(mv[c])||0)); });
+            return totales;
+        }
+        // Mapea el texto de "Origen" al canal interno. BANCO/Credicoop -> credicoop.
+        function canalDesdeOrigen(origen) {
+            let o = String(origen||'').toUpperCase();
+            if(o.indexOf('EFECTIVO') !== -1) return 'efectivo';
+            if(o.indexOf('MERCADO') !== -1 || o.indexOf('MP') !== -1) return 'mp';
+            if(o.indexOf('BANCO') !== -1 || o.indexOf('CREDICOOP') !== -1) return 'credicoop';
+            return null; // origen no reconocido (ej. "Fondos")
+        }
 
+        // ---- FORMATO NUEVO (canales como columnas) ----
+        function parsearCSVFormatoNuevo(lineas, headerIdx) {
+            let textoCab = lineas.slice(0, headerIdx).join(' ');
+            let anioTmp = (textoCab.toUpperCase().match(/20\d{2}/) || [])[0];
+            let anio = anioTmp ? parseInt(anioTmp, 10) : movAnioSel;
             let movs = [];
             let ultFechaIng = null, ultFechaEgr = null;
             for(let i = headerIdx + 1; i < lineas.length; i++) {
                 let row = splitCSVLineContable(lineas[i]);
                 if(row.every(c => !String(c).trim())) continue;
-                // Bloque INGRESOS: col 0=fecha, (1,2)(3,4)(5,6) = canal concepto/monto
-                let fIng = parseFechaCSVContable(row[0], anio); if(fIng) { ultFechaIng = fIng; if(mesIdx === -1) mesIdx = parseInt(fIng.split('-')[1],10)-1; }
+                let fIng = parseFechaCSVContable(row[0], anio); if(fIng) ultFechaIng = fIng;
                 [['credicoop',1,2],['mp',3,4],['efectivo',5,6]].forEach(([canal,ci,mi]) => {
                     let concepto = String(row[ci]||'').trim().replace(/"/g,'');
                     let monto = parseMontoCSVContable(row[mi]);
                     if(concepto && monto > 0 && ultFechaIng) movs.push(nuevoMovDesdeCanal(ultFechaIng, concepto, 'ingreso', canal, monto));
                 });
-                // Bloque EGRESOS: col 8=fecha, (9,10)(11,12)(13,14)
                 let fEgr = parseFechaCSVContable(row[8], anio); if(fEgr) ultFechaEgr = fEgr;
                 [['credicoop',9,10],['mp',11,12],['efectivo',13,14]].forEach(([canal,ci,mi]) => {
                     let concepto = String(row[ci]||'').trim().replace(/"/g,'');
@@ -2926,17 +2958,54 @@
                     if(concepto && monto > 0 && ultFechaEgr) movs.push(nuevoMovDesdeCanal(ultFechaEgr, concepto, 'egreso', canal, monto));
                 });
             }
-            // Totales calculados por canal/tipo.
-            // Si las fechas de los movimientos traen año propio (ej. "01.08.25"), ese año manda
-            // sobre la cabecera y sobre el seleccionado, para ubicarlos donde corresponde.
-            let aniosEnMovs = [...new Set(movs.map(mv => parseInt((mv.fecha||'').split('-')[0],10)).filter(a => !isNaN(a)))];
-            if(aniosEnMovs.length === 1) { anio = aniosEnMovs[0]; anioDesdeCabecera = true; }
-            // El mes también se re-deriva de las fechas si no se identificó por nombre.
-            if(mesIdx === -1 && movs.length > 0) { let m = parseInt((movs[0].fecha||'').split('-')[1],10); if(!isNaN(m)) mesIdx = m-1; }
+            let d = derivarMesAnioMovs(movs, textoCab);
+            return { movs, anio: d.anio, anioDesdeCabecera: d.anioDesdeCabecera, mesIdx: d.mesIdx, totales: totalesDeMovs(movs) };
+        }
 
-            let totales = { ingreso: {credicoop:0,mp:0,efectivo:0}, egreso: {credicoop:0,mp:0,efectivo:0} };
-            movs.forEach(mv => { let t = mv.tipo; ['credicoop','mp','efectivo'].forEach(c => totales[t][c] += (Number(mv[c])||0)); });
-            return { movs, anio, anioDesdeCabecera, mesIdx, totales };
+        // ---- FORMATO ANTIGUO (marzo 2025 y antes: Origen/Fecha/Descripción/Valor/Categoría) ----
+        function parsearCSVFormatoAntiguo(lineas, headerIdx) {
+            let textoCab = lineas.slice(0, headerIdx).join(' ');
+            let anioTmp = (textoCab.toUpperCase().match(/20\d{2}/) || [])[0];
+            let anio = anioTmp ? parseInt(anioTmp, 10) : movAnioSel;
+            // Localizar las columnas de cada bloque a partir de la fila de encabezado.
+            let hdr = splitCSVLineContable(lineas[headerIdx]).map(c => String(c||'').trim().toUpperCase());
+            // Buscar índices del primer bloque (ingresos) y segundo (egresos).
+            let origenCols = [], fechaCols = [], descCols = [], valorCols = [];
+            hdr.forEach((c, i) => {
+                if(c === 'ORIGEN') origenCols.push(i);
+                if(c === 'FECHA') fechaCols.push(i);
+                if(c.indexOf('DESCRIPCI') !== -1) descCols.push(i);
+                if(c === 'VALOR') valorCols.push(i);
+            });
+            // Estructura esperada: 2 bloques. Para cada bloque: origen, fecha, descripción, valor.
+            let bloques = [];
+            for(let b = 0; b < Math.min(origenCols.length, descCols.length, valorCols.length); b++) {
+                bloques.push({
+                    tipo: b === 0 ? 'ingreso' : 'egreso',
+                    origen: origenCols[b],
+                    fecha: fechaCols[b] !== undefined ? fechaCols[b] : (origenCols[b] + 1),
+                    desc: descCols[b],
+                    valor: valorCols[b]
+                });
+            }
+            let movs = [];
+            for(let i = headerIdx + 1; i < lineas.length; i++) {
+                let row = splitCSVLineContable(lineas[i]);
+                if(row.every(c => !String(c).trim())) continue;
+                bloques.forEach(bl => {
+                    let origen = String(row[bl.origen]||'').trim();
+                    let concepto = String(row[bl.desc]||'').trim().replace(/"/g,'');
+                    let monto = parseMontoCSVContable(row[bl.valor]);
+                    let fecha = parseFechaCSVContable(row[bl.fecha], anio);
+                    let canal = canalDesdeOrigen(origen);
+                    // Ignora filas sin canal reconocido (ej. "Fondos"), sin monto o sin fecha.
+                    if(canal && concepto && monto > 0 && fecha) {
+                        movs.push(nuevoMovDesdeCanal(fecha, concepto, bl.tipo, canal, monto));
+                    }
+                });
+            }
+            let d = derivarMesAnioMovs(movs, textoCab);
+            return { movs, anio: d.anio, anioDesdeCabecera: d.anioDesdeCabecera, mesIdx: d.mesIdx, totales: totalesDeMovs(movs) };
         }
         // Crea un movimiento de la planilla con el monto en el canal correspondiente.
         function nuevoMovDesdeCanal(fecha, concepto, tipo, canal, monto) {
