@@ -77,7 +77,9 @@
         .leyenda-caja { background: #eef6fb; border: 1px solid #aed6f1; border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
         .leyenda-caja b { color: var(--primary); font-size: .82rem; }
         .leyenda-caja p { font-size: .76rem; color: #555; line-height: 1.5; margin-top: 4px; }
-        .mov-wrap { margin-top: 26px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 14px; }
+        .mov-wrap { margin-top: 26px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 14px; position: relative; }
+        .mov-add-flotante { position: sticky; top: 6px; float: right; z-index: 20; margin-left: 8px; padding: 5px 12px; border: none; background: var(--verde); color: #fff; border-radius: 20px; font-weight: 700; font-size: .72rem; cursor: pointer; box-shadow: 0 2px 6px rgba(39,174,96,0.4); }
+        .mov-add-flotante:hover { background: #219653; }
         .mov-topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
         .mov-tabs { display: flex; align-items: center; gap: 6px; }
         .mov-tab { padding: 6px 16px; border: 1px solid var(--borde); background: #fff; border-radius: 6px; font-weight: 700; font-size: .78rem; cursor: pointer; color: #555; }
@@ -2654,6 +2656,8 @@
             let hayFiltros = movFiltroTipo !== 'todos' || movFiltroCanal !== 'todos' || movOrdenFecha || movOrdenTotal || hayFiltroFechas || hayFiltroConceptos;
 
             let h = `<div class="mov-wrap">`;
+            // Botón flotante "Agregar fila" siempre a mano dentro de la planilla.
+            if(puede) h += `<button class="mov-add-flotante" onclick="agregarMovimiento()" title="Agregar fila nueva">➕ Fila</button>`;
             // Encabezado con pestañas y acciones.
             h += `<div class="mov-topbar">
                 <div class="mov-tabs">
@@ -2768,7 +2772,7 @@
                     CANALES_MOV.forEach(c => {
                         h += `<td class="mov-c-monto"><input type="number" value="${mv[c.k] ? mv[c.k] : ''}" placeholder="0" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'${c.k}',this.value)"></td>`;
                     });
-                    h += `<td class="mov-c-total">$ ${totalMov(mv).toLocaleString('es-AR')}</td>`;
+                    h += `<td class="mov-c-total" id="movtot-${mv.id}">$ ${totalMov(mv).toLocaleString('es-AR')}</td>`;
                     if(puede) h += `<td class="mov-c-acc"><button class="mov-del" onclick="eliminarMovimiento(${idx})" title="Eliminar fila">✖</button></td>`;
                     h += `</tr>`;
                 });
@@ -2779,17 +2783,17 @@
                 h += `<tr class="mov-fila-add-row"><td colspan="${puede ? 7 : 6}"><button class="mov-add-inline" onclick="agregarMovimiento()">➕ Sumar fila nueva</button></td></tr>`;
             }
 
-            // Fila de totales por canal.
+            // Fila de totales por canal (con ids para refresco liviano sin re-render).
             h += `<tr class="mov-tot-row mov-tot-ing"><td colspan="3">TOTAL INGRESOS</td>`;
-            CANALES_MOV.forEach(c => h += `<td>$ ${tot.ingreso[c.k].toLocaleString('es-AR')}</td>`);
-            h += `<td>$ ${totalIng.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
+            CANALES_MOV.forEach(c => h += `<td id="movtoting-${c.k}">$ ${tot.ingreso[c.k].toLocaleString('es-AR')}</td>`);
+            h += `<td id="movtoting-tot">$ ${totalIng.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
             h += `<tr class="mov-tot-row mov-tot-egr"><td colspan="3">TOTAL EGRESOS</td>`;
-            CANALES_MOV.forEach(c => h += `<td>$ ${tot.egreso[c.k].toLocaleString('es-AR')}</td>`);
-            h += `<td>$ ${totalEgr.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
+            CANALES_MOV.forEach(c => h += `<td id="movtotegr-${c.k}">$ ${tot.egreso[c.k].toLocaleString('es-AR')}</td>`);
+            h += `<td id="movtotegr-tot">$ ${totalEgr.toLocaleString('es-AR')}</td>${puede ? '<td></td>' : ''}</tr>`;
             h += `</tbody></table></div>`;
 
             // Saldo final destacado.
-            h += `<div class="mov-saldo ${saldo >= 0 ? 'mov-saldo-pos' : 'mov-saldo-neg'}">
+            h += `<div class="mov-saldo ${saldo >= 0 ? 'mov-saldo-pos' : 'mov-saldo-neg'}" id="movSaldoBox">
                 ${saldo >= 0 ? '🟢 SALDO (entrada neta)' : '🔴 SALDO (salida neta)'}: $ ${Math.abs(saldo).toLocaleString('es-AR')} ${saldo < 0 ? '(negativo)' : ''}
             </div>`;
 
@@ -3056,14 +3060,47 @@
             let movs = asegurarMovimientos();
             let mesNum = (movVistaAnual ? indiceMesActual : movMesSel) + 1;
             let nuevoId = 'mv_' + Date.now();
+            // Fecha sugerida: la del último movimiento ya cargado en la vista actual (año, o año+mes);
+            // si no hay ninguno, el día 1 del mes.
+            let delaVista = movs.filter(mv => anioDeMov(mv) === movAnioSel && (movVistaAnual || mesDeMov(mv) === movMesSel) && mv.fecha);
+            let fechaSugerida = `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`;
+            if(delaVista.length > 0) {
+                // La más reciente por fecha (como la planilla está ordenada asc, es la última).
+                let ultima = delaVista.reduce((a, b) => ((b.fecha || '') >= (a.fecha || '') ? b : a));
+                if(ultima.fecha) fechaSugerida = ultima.fecha;
+            }
             // La fila nueva se agrega al FINAL (no se reordena todavía): así el usuario la ve
             // debajo de todo, carga su fecha, y recién ahí se reubica cronológicamente.
-            movs.push({ id: nuevoId, fecha: `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
+            movs.push({ id: nuevoId, fecha: fechaSugerida, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
             movUltimoId = nuevoId;
             movFoco = 'fecha'; // enfocar el campo fecha de la fila nueva tras renderizar
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderPlanillaMovimientos();
+        }
+
+        // Recalcula totales y saldo con los filtros vigentes y actualiza SOLO esos nodos,
+        // sin reconstruir las filas (así no se pierde el foco ni el clic al editar).
+        function refrescarTotalesMovimientos() {
+            let movs = asegurarMovimientos();
+            let vis = movs.filter(m => anioDeMov(m) === movAnioSel && (movVistaAnual || mesDeMov(m) === movMesSel));
+            if(movFiltroTipo !== 'todos') vis = vis.filter(m => (m.tipo === 'ingreso' ? 'ingreso' : 'egreso') === movFiltroTipo);
+            if(movFiltroCanal !== 'todos') vis = vis.filter(m => (Number(m[movFiltroCanal]) || 0) !== 0);
+            if(movFiltroFechas) vis = vis.filter(m => movFiltroFechas.has(m.fecha));
+            if(movFiltroConceptos) vis = vis.filter(m => movFiltroConceptos.has((m.concepto || '').trim()));
+            let tot = { ingreso: { credicoop: 0, mp: 0, efectivo: 0 }, egreso: { credicoop: 0, mp: 0, efectivo: 0 } };
+            vis.forEach(m => { let t = m.tipo === 'ingreso' ? 'ingreso' : 'egreso'; CANALES_MOV.forEach(c => tot[t][c.k] += (Number(m[c.k]) || 0)); });
+            let ti = tot.ingreso.credicoop + tot.ingreso.mp + tot.ingreso.efectivo;
+            let te = tot.egreso.credicoop + tot.egreso.mp + tot.egreso.efectivo;
+            let saldo = ti - te;
+            let set = (id, v) => { let el = document.getElementById(id); if(el) el.textContent = '$ ' + Math.round(v).toLocaleString('es-AR'); };
+            CANALES_MOV.forEach(c => { set('movtoting-' + c.k, tot.ingreso[c.k]); set('movtotegr-' + c.k, tot.egreso[c.k]); });
+            set('movtoting-tot', ti); set('movtotegr-tot', te);
+            let box = document.getElementById('movSaldoBox');
+            if(box) {
+                box.className = 'mov-saldo ' + (saldo >= 0 ? 'mov-saldo-pos' : 'mov-saldo-neg');
+                box.textContent = (saldo >= 0 ? '🟢 SALDO (entrada neta)' : '🔴 SALDO (salida neta)') + ': $ ' + Math.abs(saldo).toLocaleString('es-AR') + (saldo < 0 ? ' (negativo)' : '');
+            }
         }
 
         function editarMovimiento(idx, campo, valor) {
@@ -3074,14 +3111,36 @@
             if(campo === 'credicoop' || campo === 'mp' || campo === 'efectivo') movs[idx][campo] = parseFloat(valor) || 0;
             else if(campo === 'fecha') { let iso = fechaDDMMAAaISO(valor); if(iso) { movs[idx].fecha = iso; fechaCambio = true; } }
             else movs[idx][campo] = valor;
-            // La fila editada se resalta y, si cambió la fecha, se reubica junto a su fecha.
-            movUltimoId = movs[idx].id;
-            if(fechaCambio) ordenarMovimientosPorFecha();
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
-            // Si cambió un monto, tipo o fecha, re-render para actualizar totales y el resumen de arriba.
-            if(campo !== 'concepto') { renderTablaFlujoCaja(); }
-            else { renderPlanillaMovimientos(); }
+
+            if(campo === 'fecha') {
+                // La fecha reordena la fila: re-render completo y resaltado.
+                movUltimoId = movs[idx].id;
+                ordenarMovimientosPorFecha();
+                renderTablaFlujoCaja();
+            } else if(campo === 'tipo') {
+                // El tipo cambia color/totales: re-render completo (es un select, no sufre doble clic).
+                renderTablaFlujoCaja();
+            } else {
+                // Concepto o montos: NO re-renderizamos (para no robar el foco/clic).
+                // Actualizamos solo el total de la fila y los totales/saldo del pie.
+                let celTot = document.getElementById('movtot-' + movs[idx].id);
+                if(celTot) celTot.textContent = '$ ' + totalMov(movs[idx]).toLocaleString('es-AR');
+                refrescarTotalesMovimientos();
+                actualizarMarcaConcepto(idx, movs[idx]);
+            }
+        }
+
+        // Actualiza (sin re-render) la marca roja de "falta concepto" de una fila.
+        function actualizarMarcaConcepto(idx, mv) {
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            if(!fila) return;
+            let input = fila.querySelector('.mov-c-concepto input');
+            if(!input) return;
+            let falta = (totalMov(mv) !== 0) && !((mv.concepto || '').trim());
+            if(falta) { input.classList.add('mov-concepto-falta'); if(!input.value) input.placeholder = '⚠️ Falta concepto'; }
+            else { input.classList.remove('mov-concepto-falta'); if(!input.value) input.placeholder = 'Concepto...'; }
         }
 
         function eliminarMovimiento(idx) {
