@@ -108,6 +108,8 @@
         .mov-fila .mov-c-fecha input { background: transparent; border: none; font-family: inherit; font-size: .74rem; width: 112px; text-align: center; }
         .mov-fila .mov-c-concepto { background: #fff; text-align: left; }
         .mov-fila .mov-c-concepto input { width: 100%; border: none; background: transparent; font-family: inherit; font-size: .76rem; padding: 2px; }
+        .mov-fila .mov-c-concepto input.mov-concepto-falta { background: #fdeaea; outline: 1px solid #e6a6a0; border-radius: 3px; }
+        .mov-fila .mov-c-concepto input.mov-concepto-falta::placeholder { color: #c0392b; opacity: .8; }
         .mov-fila .mov-c-tipo select { border: none; background: transparent; font-family: inherit; font-size: .74rem; cursor: pointer; }
         .mov-fila.mov-ing { border-left: 3px solid #27ae60; }
         .mov-fila.mov-egr { border-left: 3px solid #c0392b; }
@@ -124,6 +126,17 @@
         .mov-tot-row td { font-weight: 700; }
         .mov-tot-row.mov-tot-ing td { background: #eafaf1; color: #1e8449; }
         .mov-tot-row.mov-tot-egr td { background: #fdeaea; color: #c0392b; }
+        /* Filas de totales fijas abajo mientras se scrollea la tabla */
+        .mov-tabla tfoot td, .mov-tot-row td { position: sticky; z-index: 4; }
+        .mov-tot-row.mov-tot-ing td { bottom: 24px; }
+        .mov-tot-row.mov-tot-egr td { bottom: 0; }
+        /* Halo azul para la última fila agregada/editada (3s) */
+        .mov-fila.mov-fila-nueva td { animation: haloFilaNueva 3s ease-out; }
+        @keyframes haloFilaNueva {
+            0% { background: #d4e9fb; box-shadow: inset 0 0 0 2px #3498db; }
+            70% { background: #eaf4fc; box-shadow: inset 0 0 0 2px rgba(52,152,219,0.5); }
+            100% { background: transparent; box-shadow: none; }
+        }
         .mov-saldo { margin-top: 12px; padding: 10px 16px; border-radius: 8px; font-weight: 800; font-size: .95rem; text-align: center; }
         .mov-saldo-pos { background: #eafaf1; color: #1e8449; border: 1.5px solid #27ae60; }
         .mov-saldo-neg { background: #fdeaea; color: #c0392b; border: 1.5px solid #e74c3c; }
@@ -2372,6 +2385,7 @@
         let movPanelFechasAbierto = false; // si está desplegado el panel de selección de fechas
         let movFiltroConceptos = null; // null = todos; o Set de conceptos seleccionados
         let movPanelConceptosAbierto = false; // si está desplegado el panel de conceptos
+        let movUltimoId = null; // id del último movimiento agregado/editado (para resaltar con halo)
         let movGraficoAbierto = false; // panel de gráficos desplegado
         let movGraficoTipo = 'lineas'; // 'lineas' | 'burbujas'
         let movGraficoRango = 'anual'; // 'anual' | 'sem1' | 'sem2' | 'mensual'
@@ -2408,6 +2422,39 @@
         }
 
         function totalMov(mov) { return (Number(mov.credicoop)||0) + (Number(mov.mp)||0) + (Number(mov.efectivo)||0); }
+
+        // Un movimiento está "totalmente vacío" si no tiene concepto ni monto en ningún canal.
+        function movVacio(mv) {
+            let sinConcepto = !(mv.concepto && String(mv.concepto).trim() !== '');
+            let sinMonto = totalMov(mv) === 0;
+            return sinConcepto && sinMonto;
+        }
+        // Quita filas totalmente vacías (abandonadas), excepto la que se está editando ahora
+        // (movUltimoId), para no borrar una fila recién agregada mientras se completa.
+        // Devuelve true si eliminó alguna.
+        function limpiarMovimientosVacios() {
+            let movs = asegurarMovimientos();
+            let antes = movs.length;
+            let filtrados = movs.filter(mv => mv.id === movUltimoId || !movVacio(mv));
+            if(filtrados.length !== antes) {
+                datosContables["_MOVIMIENTOS_"] = filtrados;
+                return true;
+            }
+            return false;
+        }
+
+        // Ordena el array global de movimientos por fecha ascendente (estable), de modo que
+        // un movimiento nuevo o con fecha editada quede agrupado junto a los de su misma fecha.
+        function ordenarMovimientosPorFecha() {
+            let movs = asegurarMovimientos();
+            movs.map((m, i) => m.__ord = i); // índice original para estabilidad
+            movs.sort((a, b) => {
+                let fa = a.fecha || '', fb = b.fecha || '';
+                if(fa !== fb) return fa.localeCompare(fb);
+                return (a.__ord || 0) - (b.__ord || 0);
+            });
+            movs.forEach(m => { delete m.__ord; });
+        }
 
         function mesDeMov(mov) {
             // Devuelve índice de mes (0-11) a partir de fecha YYYY-MM-DD; si no parsea, -1.
@@ -2539,6 +2586,8 @@
         function renderPlanillaMovimientos() {
             let cont = document.getElementById('planilla-movimientos');
             if(!cont) return;
+            // Limpieza silenciosa de filas abandonadas (sin concepto ni monto), salvo la que se edita ahora.
+            limpiarMovimientosVacios();
             let movs = asegurarMovimientos();
             let puede = puedeEditarCaja();
 
@@ -2704,9 +2753,10 @@
                 visibles.forEach(o => {
                     let mv = o.m, idx = o.i;
                     let esIng = mv.tipo === 'ingreso';
-                    h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}">`;
+                    h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}" data-mov-id="${mv.id}">`;
                     h += `<td class="mov-c-fecha"><input type="text" inputmode="numeric" placeholder="DD/MM/AA" value="${fechaISOaDDMMAA(mv.fecha)}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
-                    h += `<td class="mov-c-concepto"><input type="text" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="Concepto..." ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'concepto',this.value)"></td>`;
+                    let faltaConcepto = (totalMov(mv) !== 0) && !((mv.concepto || '').trim());
+                    h += `<td class="mov-c-concepto"><input type="text" class="${faltaConcepto ? 'mov-concepto-falta' : ''}" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="${faltaConcepto ? '⚠️ Falta concepto' : 'Concepto...'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'concepto',this.value)"></td>`;
                     h += `<td class="mov-c-tipo"><select class="${esIng ? 'tipo-ing' : 'tipo-egr'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'tipo',this.value)"><option value="ingreso" ${esIng?'selected':''}>Ingreso</option><option value="egreso" ${!esIng?'selected':''}>Egreso</option></select></td>`;
                     CANALES_MOV.forEach(c => {
                         h += `<td class="mov-c-monto"><input type="number" value="${mv[c.k] ? mv[c.k] : ''}" placeholder="0" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'${c.k}',this.value)"></td>`;
@@ -2761,6 +2811,16 @@
             cont.innerHTML = h;
             bloquearEdicionContableSiCorresponde();
             if(movGraficoAbierto) renderMovChart();
+            // Halo azul 3s en la última fila agregada/editada, y la trae a la vista.
+            if(movUltimoId) {
+                let fila = cont.querySelector('.mov-fila[data-mov-id="' + movUltimoId + '"]');
+                if(fila) {
+                    fila.classList.add('mov-fila-nueva');
+                    try { fila.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch(e) {}
+                    setTimeout(() => { if(fila) fila.classList.remove('mov-fila-nueva'); }, 3000);
+                }
+                movUltimoId = null;
+            }
         }
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
@@ -2977,7 +3037,10 @@
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
             let movs = asegurarMovimientos();
             let mesNum = (movVistaAnual ? indiceMesActual : movMesSel) + 1;
-            movs.push({ id: 'mv_' + Date.now(), fecha: `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
+            let nuevoId = 'mv_' + Date.now();
+            movs.push({ id: nuevoId, fecha: `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
+            movUltimoId = nuevoId;
+            ordenarMovimientosPorFecha();
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderPlanillaMovimientos();
@@ -2987,21 +3050,29 @@
             if(!puedeEditarCaja()) return;
             let movs = asegurarMovimientos();
             if(!movs[idx]) return;
+            let fechaCambio = false;
             if(campo === 'credicoop' || campo === 'mp' || campo === 'efectivo') movs[idx][campo] = parseFloat(valor) || 0;
-            else if(campo === 'fecha') { let iso = fechaDDMMAAaISO(valor); if(iso) movs[idx].fecha = iso; }
+            else if(campo === 'fecha') { let iso = fechaDDMMAAaISO(valor); if(iso) { movs[idx].fecha = iso; fechaCambio = true; } }
             else movs[idx][campo] = valor;
+            // La fila editada se resalta y, si cambió la fecha, se reubica junto a su fecha.
+            movUltimoId = movs[idx].id;
+            if(fechaCambio) ordenarMovimientosPorFecha();
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             // Si cambió un monto, tipo o fecha, re-render para actualizar totales y el resumen de arriba.
             if(campo !== 'concepto') { renderTablaFlujoCaja(); }
-            else { let celTotal = null; renderPlanillaMovimientos(); }
+            else { renderPlanillaMovimientos(); }
         }
 
         function eliminarMovimiento(idx) {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
             let movs = asegurarMovimientos();
             if(!movs[idx]) return;
-            if(!confirm('¿Eliminar esta fila de movimiento?')) return;
+            let mv = movs[idx];
+            let concepto = (mv.concepto || '').trim() || '(sin concepto)';
+            let total = totalMov(mv);
+            let fechaTxt = fechaISOaDDMMAA(mv.fecha) || mv.fecha || '';
+            if(!confirm(`¿Eliminar este movimiento?\n\n${fechaTxt} · ${concepto} · $ ${total.toLocaleString('es-AR')}\n\nEsta acción no se puede deshacer (salvo que no guardes).`)) return;
             movs.splice(idx, 1);
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
