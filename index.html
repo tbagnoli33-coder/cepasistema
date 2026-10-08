@@ -3519,6 +3519,48 @@
             return (p === 'mensual' || p === 'semestral' || p === 'anual') ? p : 'mensual';
         }
 
+        // Tilda (sin destildar) los meses pagos de un socio MP según los datos de su suscripción.
+        // Devuelve el array de meses recién tildados (para reportarlos). Solo del año en curso.
+        function tildarMesesPagosMP(socio, fila, plan) {
+            let anioActual = new Date().getFullYear();
+            let hasta = fila.lastCharge instanceof Date ? fila.lastCharge : null; // fecha del último cobro
+            let desde = fila.startDate instanceof Date ? fila.startDate : null;   // inicio de la suscripción
+            if(!hasta) return [];
+            // Rango de meses a cubrir dentro del año actual.
+            let mesInicio = 0;
+            if(desde && desde.getFullYear() === anioActual) mesInicio = desde.getMonth();
+            else if(desde && desde.getFullYear() > anioActual) return []; // suscripción futura
+            let mesFin = (hasta.getFullYear() === anioActual) ? hasta.getMonth()
+                        : (hasta.getFullYear() > anioActual ? 11 : -1);
+            if(mesFin < 0) return []; // último cobro en un año anterior: nada que tildar este año
+
+            // Según el plan, qué meses cubre el último cobro:
+            //  - mensual: cada mes desde inicio hasta el mes del último cobro.
+            //  - semestral: 6 meses desde el inicio del período (cubre hasta +5 meses).
+            //  - anual: todo el año.
+            let mesesACubrir = [];
+            if(plan === 'anual') {
+                for(let i = mesInicio; i <= 11; i++) mesesACubrir.push(i);
+            } else if(plan === 'semestral') {
+                // Desde el mes de inicio (o enero) hasta el último cobro + 5 meses de cobertura, tope dic.
+                let finCobertura = Math.min(11, mesFin + 5);
+                for(let i = mesInicio; i <= finCobertura; i++) mesesACubrir.push(i);
+            } else {
+                // mensual
+                for(let i = mesInicio; i <= mesFin; i++) mesesACubrir.push(i);
+            }
+            let tildados = [];
+            mesesACubrir.forEach(idx => {
+                let m = mesesLista[idx];
+                if(!(socio.pagos[m] && socio.pagos[m] !== "")) {
+                    socio.pagos[m] = "MP"; // marca de pago (cualquier string no vacío cuenta como pago)
+                    tildados.push(m);
+                }
+            });
+            if(tildados.length > 0) guardarSocioEnNube(socio, "actualizar");
+            return tildados;
+        }
+
         // payer_id de MP vinculado a un socio. Primero la bóveda (persistencia confiable),
         // luego el campo usuarioMP de la ficha como respaldo.
         function payerIdSocio(socio) {
@@ -3583,6 +3625,8 @@
             let idxFrequencyType = headers.indexOf('frequency_type');
             let idxBillingStatus = headers.indexOf('billing_status');
             let idxLastCharge = headers.indexOf('last_charge_date');
+            let idxStartDate = headers.indexOf('start_date');
+            let idxChargedQty = headers.indexOf('charged_quantity');
 
             if(idxStatus === -1 || idxFirstName === -1) {
                 alert("No se encontraron las columnas necesarias en el CSV de Mercado Pago.");
@@ -3613,7 +3657,10 @@
                 gruposMP[key].filas.push({
                     status: (row[idxStatus] || '').toLowerCase(),
                     plan: detectarPlanMP(row, idxCols),
-                    activa: esFilaActivaMP(row, idxCols)
+                    activa: esFilaActivaMP(row, idxCols),
+                    startDate: idxStartDate !== -1 ? parsearFechaMP(row[idxStartDate]) : null,
+                    lastCharge: idxLastCharge !== -1 ? parsearFechaMP(row[idxLastCharge]) : null,
+                    chargedQty: idxChargedQty !== -1 ? parseInt(row[idxChargedQty], 10) : NaN
                 });
             }
 
@@ -3634,6 +3681,8 @@
             let huboCambioPlanes = false;
             let huboCambioVinculos = false;
             let cambiosPlanMP = []; // {id, nombre, anterior, nuevo} para mostrar qué planes se actualizaron
+            let mesesTildadosMP = []; // {id, nombre, meses:[...]} para reportar meses marcados pagos
+            let huboCambioPagos = false;
             planesDetectadosMP = {};
             payerIdPorNombreMP = {};
 
@@ -3681,6 +3730,11 @@
                     if(payerIdMP && !matchPorId && !payerIdSocio(socio)) {
                         if(vincularPayerIdSocio(socio, payerIdMP)) { huboCambioPlanes = true; huboCambioVinculos = true; }
                     }
+                    // Tildado automático de meses pagos según MP (solo tilda, nunca destilda).
+                    if(tieneActiva && filaAct) {
+                        let nuevos = tildarMesesPagosMP(socio, filaAct, planDetectado);
+                        if(nuevos.length > 0) { huboCambioPagos = true; mesesTildadosMP.push({ id: socio.id, nombre: socio.nombre, meses: nuevos }); }
+                    }
                     let esActivoSistema = (socio.formaPago === 'MP');
                     if(estaRealmenteCaido && esActivoSistema) {
                         alertasCount++;
@@ -3704,8 +3758,8 @@
             }
 
             if(huboCambioPlanes) guardarBovedaEnNube(true);
-            // Repintar las cards para refrescar etiquetas de plan e indicador de vínculo MP.
-            if(huboCambioPlanes || huboCambioVinculos) renderizarSocios();
+            // Repintar las cards para refrescar etiquetas de plan, vínculo MP y meses tildados.
+            if(huboCambioPlanes || huboCambioVinculos || huboCambioPagos) { actualizarEstadosGeneral(); renderizarSocios(); }
 
             if(activosSinSocio.length > 0) {
                 html += `<div style="margin-top:12px; padding:8px; background:#fff8e1; border:1px solid #f0d060; border-radius:6px;"><b style="color:#b8860b;">Suscriptores de MP sin socio en el sistema (${activosSinSocio.length}):</b><br><span style="font-size:0.8rem; color:#7f8c8d;">Pagan por MP pero todavía no figuran como socios. Podés darlos de alta rápidamente.</span>`;
@@ -3733,6 +3787,15 @@
                     html += `<div style="padding:3px 0; border-top:1px solid #d4efdf;">#${ch.id} <b>${escaparHTMLTexto(ch.nombre)}</b>: ${ch.anterior} → <b>${ch.nuevo}</b></div>`;
                 });
                 html += `</div>`;
+            }
+
+            if(mesesTildadosMP.length > 0) {
+                let totalMeses = mesesTildadosMP.reduce((a, x) => a + x.meses.length, 0);
+                html += `<div style="margin-top:10px; padding:8px; background:#eafaf1; border:1px solid #a9dfbf; border-radius:6px; font-size:0.8rem; color:#1e8449;"><b>✅ Meses marcados como pagos según MP (${totalMeses} en ${mesesTildadosMP.length} socios):</b>`;
+                mesesTildadosMP.forEach(x => {
+                    html += `<div style="padding:3px 0; border-top:1px solid #d4efdf;">#${x.id} <b>${escaparHTMLTexto(x.nombre)}</b>: ${x.meses.join(', ')}</div>`;
+                });
+                html += `<div style="font-size:0.72rem; color:#7f8c8d; margin-top:4px;">Solo se agregan meses (no se desmarcan). Verificá contra MP si hiciste cambios manuales.</div></div>`;
             }
 
             if(alertasCount === 0 && activosSinSocio.length === 0) {
