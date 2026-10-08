@@ -700,14 +700,24 @@
     <!-- MODAL AUDITORÍA CSV MP -->
     <div id="modalAuditoriaMP" class="modal-overlay" onclick="document.getElementById('modalAuditoriaMP').classList.remove('open')">
         <div class="modal-box form-modal" onclick="event.stopPropagation()" style="max-width: 650px;">
-            <h3 style="color:#8e44ad; margin-bottom:10px;">📊 Auditoría de Suscripciones con CSV de Mercado Pago</h3>
-            <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Subí el archivo <b>Suscriptores.csv</b> que descargaste de Mercado Pago para detectar automáticamente quiénes están al día, pausados o vencidos.</p>
-            
-            <div style="background:#f4f6f9; padding:15px; border-radius:6px; border:2px dashed #bdc3c7; text-align:center; margin-bottom:15px;">
-                <input type="file" id="csvFileMPInput" accept=".csv" style="margin-bottom:10px; font-size:0.85rem;">
-                <br>
-                <button class="modal-btn btn-confirmar" style="background:#8e44ad; width:auto; padding:8px 20px;" onclick="procesarCSVMP()">🔍 Analizar y Cruzar Datos</button>
+            <h3 style="color:#8e44ad; margin-bottom:10px;">📊 Suscripciones de Mercado Pago</h3>
+
+            <div style="background:#eafaf1; padding:15px; border-radius:6px; border:2px solid #a9dfbf; text-align:center; margin-bottom:15px;">
+                <p style="font-size:0.82rem; color:#1e8449; margin-bottom:10px; font-weight:600;">🔄 Sincronización automática</p>
+                <p style="font-size:0.76rem; color:#555; margin-bottom:12px;">Consulta los pagos reales de Mercado Pago y tilda los meses pagos de cada socio al instante, sin subir ningún archivo.</p>
+                <button class="modal-btn btn-confirmar" id="btnSincronizarMP" style="background:#27ae60; width:auto; padding:10px 24px;" onclick="sincronizarMPAhora()">🔄 Sincronizar con MP ahora</button>
+                <div id="syncMPEstado" style="font-size:0.76rem; color:#1e8449; margin-top:10px; display:none;"></div>
             </div>
+
+            <details style="margin-bottom:15px;">
+                <summary style="cursor:pointer; font-size:0.8rem; font-weight:700; color:#8e44ad;">📄 Cargar reporte CSV manualmente (opcional)</summary>
+                <p style="font-size:0.78rem; color:#666; margin:10px 0;">Por las dudas, también podés subir el archivo <b>Suscriptores.csv</b> descargado de Mercado Pago para analizar y cruzar los datos.</p>
+                <div style="background:#f4f6f9; padding:15px; border-radius:6px; border:2px dashed #bdc3c7; text-align:center;">
+                    <input type="file" id="csvFileMPInput" accept=".csv" style="margin-bottom:10px; font-size:0.85rem;">
+                    <br>
+                    <button class="modal-btn btn-confirmar" style="background:#8e44ad; width:auto; padding:8px 20px;" onclick="procesarCSVMP()">🔍 Analizar y Cruzar Datos</button>
+                </div>
+            </details>
 
             <div id="resultadoAuditoriaContainer" style="max-height: 280px; overflow-y: auto; border:1px solid var(--borde); border-radius:6px; padding:10px; background:#fff; font-size:0.8rem;">
                 <p style="text-align:center; color:#7f8c8d; padding:20px;">Esperando archivo CSV...</p>
@@ -3417,6 +3427,33 @@
             asegurarClavesMP();
             document.getElementById('resultadoAuditoriaContainer').innerHTML = bloqueHistorialHTML() + (esDesarrollador() ? seccionGestionHTML() : '') + '<p style="text-align:center; color:#7f8c8d; padding:20px;">Esperando archivo CSV...</p>';
             document.getElementById('modalAuditoriaMP').classList.add('open');
+        }
+
+        async function sincronizarMPAhora() {
+            let btn = document.getElementById('btnSincronizarMP');
+            let estado = document.getElementById('syncMPEstado');
+            if(btn) { btn.disabled = true; btn.innerText = '⏳ Sincronizando con MP...'; }
+            if(estado) { estado.style.display = 'block'; estado.style.color = '#1e8449'; estado.innerText = 'Consultando pagos reales en Mercado Pago, puede tardar unos segundos...'; }
+            try {
+                const url = SCRIPT_URL + (SCRIPT_URL.indexOf('?') === -1 ? '?' : '&') + 'action=sincronizar_mp&t=' + Date.now();
+                const resp = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+                const texto = await resp.text();
+                let data = {};
+                try { data = JSON.parse(texto); } catch(e) { data = {}; }
+                let marcados = (data && typeof data.marcados !== 'undefined') ? data.marcados : null;
+                if(estado) estado.innerText = marcados !== null
+                    ? `✅ Listo: ${marcados} mes(es) marcado(s) según MP. Actualizando la vista...`
+                    : '✅ Sincronización ejecutada. Actualizando la vista...';
+                // Recargar socios desde la nube para reflejar los meses recién tildados.
+                await cargarSociosDesdeNube();
+                if(estado) estado.innerText = marcados !== null
+                    ? `✅ Sincronización completa: ${marcados} mes(es) marcado(s) según los pagos de MP.`
+                    : '✅ Sincronización completa.';
+            } catch(e) {
+                if(estado) { estado.style.color = '#c0392b'; estado.innerText = '❌ No se pudo sincronizar. Revisá la conexión o usá la carga por CSV. Detalle: ' + e.message; }
+            } finally {
+                if(btn) { btn.disabled = false; btn.innerText = '🔄 Sincronizar con MP ahora'; }
+            }
         }
 
         function procesarCSVMP() {
