@@ -1,255 +1,172 @@
 # Automatización de la sincronización con Mercado Pago (sin subir CSV a mano)
 
-Esta guía explica cómo conectar tu backend de Google Apps Script con la API de
-Mercado Pago para que los datos de suscripciones se actualicen solos, sin tener
-que exportar y subir el CSV manualmente.
+Esta guía deja los socios de Mercado Pago con sus **meses pagos tildados
+automáticamente**, consultando los pagos reales de MP. Se ejecuta solo (cron
+diario), sin exportar ni subir ningún CSV.
 
-> **Importante:** esto requiere pegar código en tu Google Apps Script (el mismo
-> que ya usás para guardar socios) y cargar un token secreto de Mercado Pago.
-> El token NO va en el sitio web (sería inseguro); va guardado en el Apps Script.
-
----
-
-## Paso 1 — Obtener el Access Token de Mercado Pago
-
-1. Entrá a https://www.mercadopago.com.ar/developers/panel
-2. Creá una aplicación (o usá una existente).
-3. En "Credenciales de producción", copiá el **Access Token** (empieza con `APP_USR-...`).
-4. Guardalo, lo vas a pegar en el Apso Script en el paso 3.
-
-> El Access Token da acceso a tu cuenta de MP. Tratalo como una contraseña.
+> El código vive en tu Google Apps Script (el mismo de la planilla de socios).
+> El token de MP se guarda de forma segura en el script, nunca en el sitio web.
+> **Estado: IMPLEMENTADO Y FUNCIONANDO** ✅ (178 suscripciones, pagos reales por mes).
 
 ---
 
-## Paso 2 — Abrir tu Google Apps Script
+## Paso 1 — Access Token de Mercado Pago
 
-1. Abrí la planilla de Google Sheets que usa el sistema.
-2. Menú **Extensiones → Apps Script**.
-3. Vas a ver el código actual (el que maneja `doGet`/`doPost` de los socios).
+1. https://www.mercadopago.com.ar/developers/panel → tu aplicación.
+2. "Credenciales de producción" → copiá el **Access Token** (`APP_USR-...`).
+3. Tratalo como una contraseña.
 
----
+## Paso 2 — Guardar el token (una vez)
 
-## Paso 3 — Guardar el token de forma segura
-
-En el editor de Apps Script, pegá esta función, ejecutala UNA vez (botón ▷),
-y luego borrala (para que el token no quede en el código):
+En el Apps Script, archivo `Código.gs` o uno nuevo, pegá, ejecutá UNA vez y
+después borralo:
 
 ```javascript
 function guardarTokenMP() {
-  // Pegá tu Access Token entre las comillas:
-  PropertiesService.getScriptProperties().setProperty(
-    'MP_ACCESS_TOKEN',
-    'APP_USR-TU-TOKEN-ACA'
-  );
+  PropertiesService.getScriptProperties().setProperty("MP_ACCESS_TOKEN", "APP_USR-TU-TOKEN");
 }
 ```
 
-Al ejecutarla, el token queda guardado en las propiedades del script (seguro,
-no visible en el sitio). Después borrá la función del editor.
+> Importante: el token va en UNA sola línea, entre comillas rectas `"`.
+> Si el editor queda en gris, es un error de sintaxis (comilla rota): borrá la
+> línea, reescribila a mano y guardá.
 
----
+## Paso 3 — Código de sincronización
 
-## Paso 4 — Agregar la función que trae las suscripciones de MP
-
-Pegá esto en el Apps Script (es nuevo, no reemplaza lo que ya tenés):
+Creá un archivo nuevo en Apps Script (ícono **+** → Secuencia de comandos),
+nombralo `MercadoPago`, borrá lo que trae por defecto y pegá TODO esto:
 
 ```javascript
-// Devuelve las suscripciones (preapprovals) de MP en el mismo formato
-// de columnas que el CSV, para que el sitio las procese igual que el archivo.
-function obtenerSuscripcionesMP() {
-  var token = PropertiesService.getScriptProperties().getProperty('MP_ACCESS_TOKEN');
-  if (!token) throw new Error('Falta MP_ACCESS_TOKEN. Ejecutá guardarTokenMP primero.');
+// ============ Sincronización con Mercado Pago (pagos reales) ============
 
-  var resultados = [];
-  var offset = 0;
-  var limit = 100;
-  var seguir = true;
+function tokenMP_() {
+  var t = PropertiesService.getScriptProperties().getProperty("MP_ACCESS_TOKEN");
+  if (!t) throw new Error("Falta MP_ACCESS_TOKEN. Ejecutá guardarTokenMP primero.");
+  return t;
+}
 
-  while (seguir) {
-    var url = 'https://api.mercadopago.com/preapproval/search?limit=' + limit + '&offset=' + offset;
+// Meses pagados por payer_id, según los pagos REALES aprobados del año en curso.
+// Devuelve: { "152028761": {2:true, 3:true, ...}, ... }  (mes 1-12)
+function obtenerMesesPagadosMP() {
+  var token = tokenMP_();
+  var anio = new Date().getFullYear();
+  var desde = anio + "-01-01T00:00:00.000-03:00";
+  var hasta = anio + "-12-31T23:59:59.000-03:00";
+  var porPayer = {};
+  var offset = 0, limit = 50, seguir = true, guard = 0;
+
+  while (seguir && guard < 200) {
+    guard++;
+    var url = "https://api.mercadopago.com/v1/payments/search"
+      + "?sort=date_created&criteria=asc"
+      + "&range=date_created&begin_date=" + encodeURIComponent(desde) + "&end_date=" + encodeURIComponent(hasta)
+      + "&status=approved&limit=" + limit + "&offset=" + offset;
     var resp = UrlFetchApp.fetch(url, {
-      method: 'get',
-      headers: { 'Authorization': 'Bearer ' + token },
+      method: "get",
+      headers: { "Authorization": "Bearer " + token },
       muteHttpExceptions: true
     });
     var data = JSON.parse(resp.getContentText());
     var items = (data && data.results) ? data.results : [];
-    items.forEach(function(it) {
-      resultados.push({
-        payer_id: it.payer_id || '',
-        payer_first_name: '',        // MP no siempre expone el nombre acá
-        payer_last_name: '',
-        status: it.status || '',
-        reason: it.reason || '',
-        preapproval_plan_id: it.preapproval_plan_id || '',
-        frequency: (it.auto_recurring && it.auto_recurring.frequency) || '',
-        frequency_type: (it.auto_recurring && it.auto_recurring.frequency_type) || '',
-        billing_status: it.status || '',
-        last_charge_date: it.last_charged_date || '',
-        start_date: (it.auto_recurring && it.auto_recurring.start_date) || it.date_created || '',
-        charged_quantity: it.charged_quantity || ''
-      });
+    items.forEach(function (p) {
+      var payer = p.payer && p.payer.id ? String(p.payer.id) : "";
+      if (!payer) return;
+      var fecha = p.date_approved || p.date_created;
+      if (!fecha) return;
+      var mes = new Date(fecha).getMonth() + 1;
+      if (!porPayer[payer]) porPayer[payer] = {};
+      porPayer[payer][mes] = true;
     });
+    var total = (data && data.paging) ? data.paging.total : 0;
     offset += limit;
-    seguir = items.length === limit && offset < (data.paging ? data.paging.total : 0);
+    seguir = items.length === limit && offset < total;
   }
-  return resultados;
+  return porPayer;
 }
-```
 
----
-
-## Paso 5 — Exponer esos datos al sitio
-
-En tu función `doGet` del Apps Script, agregá un caso para cuando el sitio pida
-las suscripciones. Buscá donde manejás los parámetros (`e.parameter.action`) y
-agregá:
-
-```javascript
-if (e.parameter.action === 'suscripciones_mp') {
-  var subs = obtenerSuscripcionesMP();
-  return ContentService
-    .createTextOutput(JSON.stringify({ suscripciones: subs }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-```
-
-Volvé a **Implementar → Administrar implementaciones → Editar → Nueva versión**
-para publicar el cambio.
-
----
-
-## Paso 6 — Sincronización 100% automática (cron, cero intervención)
-
-Con esto, Google ejecuta la sincronización solo (cada día o semana): trae los
-datos de MP, calcula qué meses están pagos de cada socio y los marca
-directamente en la planilla. Cuando el equipo abre el sistema, ya está todo
-tildado, sin subir CSV ni tocar ningún botón.
-
-### 6.1 — Pegá esta función en el Apps Script
-
-Ajustá al principio los **nombres de tu hoja y columnas** si difieren. La
-función asume que la hoja de socios tiene una columna con el `payer_id` de MP
-(la misma que el sistema llama `USUARIO_MP`) y columnas de meses `ENE..DIC`.
-
-```javascript
+// Escribe los meses pagados en la planilla de socios (solo marca vacíos; nunca pisa lo manual).
 function sincronizarMPAutomatico() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var hoja = ss.getSheetByName('Socios'); // <-- nombre de tu hoja de socios
-  if (!hoja) { Logger.log('No se encontró la hoja Socios'); return; }
+  var hoja = null, headers = null;
+  var hojas = ss.getSheets();
+  for (var h = 0; h < hojas.length; h++) {
+    var hd = hojas[h].getRange(1, 1, 1, hojas[h].getLastColumn()).getValues()[0];
+    if (hd.indexOf("USUARIO_MP") !== -1 && hd.indexOf("ENE") !== -1) { hoja = hojas[h]; headers = hd; break; }
+  }
+  if (!hoja) { Logger.log("No se encontró la hoja de socios (con USUARIO_MP y ENE)."); return; }
 
+  function col(n) { return headers.indexOf(n); }
+  var cPayer = col("USUARIO_MP");
+  var mesesCol = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+  var cMes = mesesCol.map(col);
+
+  var pagados = obtenerMesesPagadosMP();
   var datos = hoja.getDataRange().getValues();
-  var headers = datos[0];
-  function col(nombre) { return headers.indexOf(nombre); } // índice de columna por nombre
-
-  var cPayer = col('USUARIO_MP');
-  var cMetodo = col('METODO_PAGO');
-  var meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-  var cMes = meses.map(function(m){ return col(m); });
-  if (cPayer === -1) { Logger.log('Falta columna USUARIO_MP'); return; }
-
-  var subs = obtenerSuscripcionesMP();          // del Paso 4
-  var porPayer = {};
-  subs.forEach(function(s){ if (s.payer_id) porPayer[String(s.payer_id)] = s; });
-
-  var anioActual = new Date().getFullYear();
-  var cambios = 0;
+  var cambios = 0, sociosTocados = 0;
 
   for (var r = 1; r < datos.length; r++) {
-    var payer = String(datos[r][cPayer] || '').trim();
-    if (!payer || !porPayer[payer]) continue;
-    var s = porPayer[payer];
-
-    // Solo suscripciones activas
-    var st = String(s.status || '').toLowerCase();
-    var activa = (st === 'authorized' || st === 'up_to_date');
-    if (!activa) continue;
-
-    // Plan
-    var freq = parseInt(s.frequency, 10) || 1;
-    var ftype = String(s.frequency_type || '').toLowerCase();
-    var mesesFrec = (ftype.indexOf('year') !== -1) ? freq * 12 : freq;
-    var plan = (mesesFrec >= 11.5) ? 'anual' : (mesesFrec >= 5.5 ? 'semestral' : 'mensual');
-
-    // Fechas
-    var inicio = s.start_date ? new Date(s.start_date) : null;
-    var ultimo = s.last_charge_date ? new Date(s.last_charge_date) : null;
-    if (!ultimo) continue;
-    if (ultimo.getFullYear() < anioActual) continue;
-
-    var mesInicio = (inicio && inicio.getFullYear() === anioActual) ? inicio.getMonth() : 0;
-    var mesFin = (ultimo.getFullYear() === anioActual) ? ultimo.getMonth() : 11;
-
-    var cubrir = [];
-    if (plan === 'anual') { for (var i = mesInicio; i <= 11; i++) cubrir.push(i); }
-    else if (plan === 'semestral') { var f = Math.min(11, mesFin + 5); for (var i = mesInicio; i <= f; i++) cubrir.push(i); }
-    else { for (var i = mesInicio; i <= mesFin; i++) cubrir.push(i); }
-
-    // Tilda meses (solo agrega, no borra lo cargado a mano)
-    cubrir.forEach(function(idx){
-      var c = cMes[idx];
-      if (c === -1) return;
-      var val = String(datos[r][c] || '').trim();
-      if (!val) { hoja.getRange(r + 1, c + 1).setValue('MP'); cambios++; }
-    });
+    var payer = String(datos[r][cPayer] || "").trim();
+    if (!payer || !pagados[payer]) continue;
+    var toco = false;
+    for (var m = 0; m < 12; m++) {
+      if (pagados[payer][m + 1]) {
+        var c = cMes[m];
+        if (c === -1) continue;
+        var val = String(datos[r][c] || "").trim();
+        if (!val) { hoja.getRange(r + 1, c + 1).setValue("MP"); cambios++; toco = true; }
+      }
+    }
+    if (toco) sociosTocados++;
   }
-  Logger.log('Sincronización MP: ' + cambios + ' meses marcados.');
+  Logger.log("Sincronización MP: " + cambios + " meses marcados en " + sociosTocados + " socios.");
+  return cambios;
+}
+
+// Pruebas manuales (Ver > Registros):
+function probarPagosMP() {
+  var m = obtenerMesesPagadosMP();
+  var p = Object.keys(m);
+  Logger.log("Payers con pagos este año: " + p.length);
+  if (p.length) Logger.log(p[0] + " -> " + JSON.stringify(m[p[0]]));
 }
 ```
 
-### 6.2 — Crear el disparador horario
+Guardá (Ctrl+S). Ejecutá `sincronizarMPAutomatico` una vez a mano y revisá
+**Ver → Registros**: debe decir "X meses marcados en Y socios".
 
-1. En el Apps Script, panel izquierdo → ⏰ **Activadores (Triggers)**.
-2. **+ Agregar activador** (abajo a la derecha).
+## Paso 4 — Cron automático (cero intervención)
+
+1. Apps Script → ícono **⏰ Activadores** (panel izquierdo).
+2. **+ Agregar activador**.
 3. Configurá:
-   - Función a ejecutar: **sincronizarMPAutomatico**
+   - Función: **sincronizarMPAutomatico**
    - Implementación: **Head**
    - Origen del evento: **Según tiempo**
-   - Tipo: **Temporizador por día** (o "por semana" si preferís)
-   - Hora: la franja que quieras (ej. 3am–4am).
-4. Guardar. Google te pedirá autorizar permisos la primera vez (aceptá).
+   - Tipo: **Temporizador por día**
+   - Hora: una franja de madrugada (ej. 3–4 a. m.)
+4. Guardar y autorizar permisos.
 
-Listo: a partir de ahí, todos los días (o semanas) a esa hora, Google corre la
-función solo, consulta MP y deja los meses tildados en la planilla. **Cero
-intervención.** El sistema simplemente lee la planilla ya actualizada.
-
-### 6.3 — Verificar que funciona
-
-- En el Apps Script, ejecutá `sincronizarMPAutomatico` una vez a mano (botón ▷)
-  y revisá el **Registro de ejecución** (Ver → Registros): debe decir
-  "X meses marcados".
-- Abrí el sistema y confirmá que los socios MP tengan sus meses tildados.
-
-### Comparación de las dos vías
-
-| | Botón "Sincronizar con MP" (Paso 7) | Cron automático (Paso 6) |
-|---|---|---|
-| Quién lo dispara | Una persona, cuando quiere | Google, solo (diario/semanal) |
-| Intervención | Un clic | Ninguna |
-| Dónde se tilda | En el navegador y se guarda | Directo en la planilla |
-| Recomendado para | Control puntual | Mantener todo al día sin pensar |
-
-Podés tener **las dos** a la vez: el cron mantiene todo al día solo, y el botón
-te sirve para forzar una actualización en el momento si hace falta.
+A partir de ahí corre solo todas las madrugadas. El equipo abre el sistema y los
+meses MP ya están tildados.
 
 ---
 
-## Paso 7 — Lado del sitio (lo hago yo)
+## Notas importantes
 
-Cuando tengas los pasos 1-5 listos y me confirmes, agrego en el sistema un botón
-**"🔄 Sincronizar con MP"** que:
-1. Le pide al Apps Script los datos (`?action=suscripciones_mp`).
-2. Los procesa con el MISMO análisis que ya usa el CSV (detecta plan, marca
-   caídos/activos y tilda los meses pagos).
-3. Todo sin subir ningún archivo.
+- **Pagos reales:** usa `/v1/payments/search` con `status=approved`. Refleja lo
+  que MP efectivamente cobró, mes por mes.
+- **Matcheo por payer_id:** cada pago se asocia al socio por el `payer_id`
+  guardado en la ficha (`USUARIO_MP`). Los socios deben estar vinculados (badge
+  verde "🔗 MP vinculado"). Para vincular en masa, hacé una pasada con el CSV
+  (que trae nombres) y el sistema auto-vincula; después el cron funciona por id.
+- **Solo agrega, nunca quita:** marca únicamente meses vacíos. Si MP reversa un
+  pago, el mes queda tildado hasta que lo destildes a mano.
+- **Año en curso:** mira los pagos del año actual; en enero arranca el año nuevo.
+- **Seguridad:** el token vive solo en las propiedades del script, nunca en el
+  sitio. Para revocarlo, generá uno nuevo en MP y re-ejecutá `guardarTokenMP`.
 
-Avisame cuando completes los pasos del Apps Script y lo conecto.
+## (Opcional) Botón "Sincronizar con MP" en el sitio
 
----
-
-## Resumen de seguridad
-
-- El token vive solo en el Apps Script (propiedades del script), nunca en el sitio.
-- El sitio nunca ve el token; solo recibe los datos ya procesados.
-- Si alguna vez querés revocar el acceso, generás un token nuevo en el panel de MP
-  y actualizás la propiedad con `guardarTokenMP`.
+Si además querés un botón en el sistema para forzar la sync en el momento (sin
+esperar al cron), se puede exponer `sincronizarMPAutomatico` vía `doGet` y
+agregar el botón en la web. Pedilo cuando quieras y se implementa.
