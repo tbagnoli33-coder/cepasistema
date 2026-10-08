@@ -2532,7 +2532,7 @@
             let c = normalizarNombre(concepto || '').toLowerCase();
             if(!c) return null;
             const tiene = (...palabras) => palabras.some(p => c.indexOf(p) !== -1);
-            if(tiene('luz', 'edenor', 'electricidad')) return 'Luz';
+            if(tiene('edenor')) return 'Luz'; // solo EDENOR (evita confundir con "Taller Electricidad")
             if(tiene('gas', 'metrogas')) return 'Gas';
             if(tiene('agua', 'aysa')) return 'Agua';
             if(tiene('internet', 'telecentro')) return 'Internet';
