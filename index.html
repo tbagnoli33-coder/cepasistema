@@ -77,6 +77,9 @@
         .leyenda-caja { background: #eef6fb; border: 1px solid #aed6f1; border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
         .leyenda-caja b { color: var(--primary); font-size: .82rem; }
         .leyenda-caja p { font-size: .76rem; color: #555; line-height: 1.5; margin-top: 4px; }
+        .aviso-solo-lectura { background: #fff8e1; border: 1px solid #f0d060; border-left: 4px solid #f39c12; border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
+        .aviso-solo-lectura b { color: #b9770e; font-size: .82rem; }
+        .aviso-solo-lectura p { font-size: .76rem; color: #7a5c10; line-height: 1.5; margin-top: 4px; }
         .mov-wrap { margin-top: 26px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 14px; position: relative; }
         .mov-add-flotante { position: sticky; top: 6px; float: right; z-index: 20; margin-left: 8px; padding: 5px 12px; border: none; background: var(--verde); color: #fff; border-radius: 20px; font-weight: 700; font-size: .72rem; cursor: pointer; box-shadow: 0 2px 6px rgba(39,174,96,0.4); }
         .mov-add-flotante:hover { background: #219653; }
@@ -2523,6 +2526,43 @@
             return res;
         }
 
+        // Glosario: a qué servicio fijo corresponde el concepto de un egreso.
+        // Devuelve el nombre del servicio (de listaEgresos) o null si no matchea.
+        function servicioFijoDeConcepto(concepto, monto) {
+            let c = normalizarNombre(concepto || '').toLowerCase();
+            if(!c) return null;
+            const tiene = (...palabras) => palabras.some(p => c.indexOf(p) !== -1);
+            if(tiene('luz', 'edenor', 'electricidad')) return 'Luz';
+            if(tiene('gas', 'metrogas')) return 'Gas';
+            if(tiene('agua', 'aysa')) return 'Agua';
+            if(tiene('internet', 'telecentro')) return 'Internet';
+            if(tiene('seguro', 'allianz', 'rus')) return 'Seguro';
+            if(tiene('dispenser', 'lucas jurado', 'lucas dispenser')) return 'Dispensers';
+            // Honorarios del contador (Fede Vega): solo montos grandes (≥ $200.000) son honorarios;
+            // los importes chicos a Fede son trámites y NO cuentan como honorarios.
+            if(tiene('honorario', 'contador') || (tiene('fede') && (Number(monto) || 0) >= 200000)) {
+                if((Number(monto) || 0) >= 200000 || tiene('honorario', 'contador')) return 'Honorarios Contador';
+            }
+            if(tiene('whatsapp', 'asistencia whatsapp')) return 'Asistencia WhatsApp';
+            return null;
+        }
+
+        // Totales de servicios fijos por mes, DERIVADOS de los movimientos de egreso.
+        // (La tabla de egresos fijos pasa a ser un espejo de solo lectura de la planilla.)
+        function totalesServiciosDesdeMovimientos() {
+            let movs = asegurarMovimientos();
+            let res = {}; // { servicio: { "Ene":0, ... } }
+            listaEgresos.forEach(e => { res[e] = {}; mesesLista.forEach(m => res[e][m] = 0); });
+            movs.forEach(mv => {
+                if(mv.tipo !== 'egreso') return;
+                let idx = mesDeMov(mv);
+                if(idx < 0) return;
+                let serv = servicioFijoDeConcepto(mv.concepto, totalMov(mv));
+                if(serv && res[serv]) res[serv][mesesLista[idx]] += totalMov(mv);
+            });
+            return res;
+        }
+
         function renderTablaFlujoCaja() {
             if (!datosEgresos) datosEgresos = inicializarDatosEgresos();
             if (!datosContables) datosContables = inicializarDatosContables();
@@ -2551,19 +2591,29 @@
             ["MP", "EF", "TR"].forEach(fp => { html += `<tr><td>${fp}</td>`; mesesLista.forEach(m => { let v = cuotasInfo[fp].meses[m]; tC[m] += v; html += `<td>$ ${v.toLocaleString('es-AR')}</td>`; }); gTC += cuotasInfo[fp].total; html += `<td style="font-weight:700;">$ ${cuotasInfo[fp].total.toLocaleString('es-AR')}</td></tr>`; });
             html += `<tr class="totales-row"><td>SUBTOTAL CUOTAS</td>`; mesesLista.forEach(m => html += `<td>$ ${tC[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gTC.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
             
-            html += `<div class="contable-container" style="margin-top:20px;"><table class="tabla-contable"><thead><tr><th>EGRESOS FIJOS</th>`; mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>TOTAL</th></tr></thead><tbody>`;
+            // EGRESOS FIJOS (SERVICIOS): tabla de SOLO LECTURA, derivada automáticamente de los
+            // movimientos cargados en la planilla (según el glosario de servicios). No se carga a mano
+            // y NO se vuelve a sumar al neto (sus montos ya están dentro de los egresos de movimientos).
+            let servPorMes = totalesServiciosDesdeMovimientos();
+            html += `<div class="mov-titulo" style="margin-top:20px;">🔌 Servicios / Egresos fijos</div>`;
+            html += `<div class="aviso-solo-lectura">
+                <b>👁️ Esta tabla es solo de visualización — no se carga acá.</b>
+                <p>Se arma <b>automáticamente</b> tomando los movimientos de servicios que ya cargaste en la planilla de ingresos y egresos de abajo (Luz/Edenor, Gas/Metrogas, Agua/Aysa, Internet/Telecentro, Seguro, Honorarios del contador, Dispensers). <b>Para agregar o editar un servicio, hacelo en la planilla de abajo</b> y acá se reflejará solo.</p>
+            </div>`;
+            html += `<div class="contable-container"><table class="tabla-contable"><thead><tr><th>SERVICIO</th>`; mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>TOTAL</th></tr></thead><tbody>`;
             let tE = { "Ene":0, "Feb":0, "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }, gTE = 0;
             listaEgresos.forEach(eg => {
-                let sEg = eg.replace(/[^a-zA-Z0-9]/g, ''); html += `<tr><td>${eg}</td>`; let te = 0;
-                mesesLista.forEach(m => { let v = datosEgresos[eg][m] || 0; tE[m] += v; te += v; html += `<td><input type="number" id="egr-${sEg}-${m}" class="input-monto" value="${v > 0 ? v : ''}" oninput="marcarCambiosContables()" onchange="actualizarMontoEgreso('${eg}', '${m}', this.value)" style="color:red;"></td>`; });
-                gTE += te; html += `<td style="color:red; font-weight:700;">$ ${te.toLocaleString('es-AR')}</td></tr>`;
+                html += `<tr><td>${eg}</td>`; let te = 0;
+                mesesLista.forEach(m => { let v = servPorMes[eg][m] || 0; tE[m] += v; te += v; html += `<td style="color:${v>0?'#c0392b':'#bbb'};">${v>0?'$ '+v.toLocaleString('es-AR'):'-'}</td>`; });
+                gTE += te; html += `<td style="color:#c0392b; font-weight:700;">$ ${te.toLocaleString('es-AR')}</td></tr>`;
             });
-            html += `<tr class="totales-row" style="background:#c0392b !important;"><td>SUBTOTAL EGRESOS</td>`; mesesLista.forEach(m => html += `<td>$ ${tE[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gTE.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
+            html += `<tr class="totales-row" style="background:#c0392b !important;"><td>SUBTOTAL SERVICIOS</td>`; mesesLista.forEach(m => html += `<td>$ ${tE[m].toLocaleString('es-AR')}</td>`); html += `<td>$ ${gTE.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
+            html += `<p style="font-size:.72rem; color:#7f8c8d; margin-top:6px;">Ya está incluida en los egresos del neto; no se suma dos veces.</p>`;
             
             html += `<div class="contable-container" style="margin-top:20px; border:2px solid #ccc;"><table class="tabla-contable"><thead><tr><th>MÉTRICA</th>`; mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>AÑO</th></tr></thead><tbody>`;
             html += `<tr><td style="color:green; font-weight:700;">INGRESOS BASE</td>`; let tIA = 0; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let tIn = tC[m] + tm; tIA += tIn; html += `<td style="color:green;">$ ${tIn.toLocaleString('es-AR')}</td>`; }); html += `<td style="color:green; font-weight:700;">$ ${tIA.toLocaleString('es-AR')}</td></tr>`;
-            html += `<tr><td style="color:red; font-weight:700;">EGRESOS BASE</td>`; mesesLista.forEach(m => html += `<td style="color:red;">$ ${tE[m].toLocaleString('es-AR')}</td>`); html += `<td style="color:red; font-weight:700;">$ ${gTE.toLocaleString('es-AR')}</td></tr>`;
-            html += `<tr style="background:#2c3e50;"><td style="color:white; font-weight:700;">NETO</td>`; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let n = (tC[m] + tm + extraTotales.ingresos[m]) - (tE[m] + extraTotales.egresos[m]); html += `<td style="color:white; background:${n>=0?'green':'red'};">$ ${n.toLocaleString('es-AR')}</td>`; }); let gN = (tIA + gEI) - (gTE + gEE); html += `<td style="color:white; background:${gN>=0?'green':'red'}; font-weight:800;">$ ${gN.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
+            html += `<tr><td style="color:red; font-weight:700;">EGRESOS BASE</td>`; mesesLista.forEach(m => html += `<td style="color:red;">$ ${extraTotales.egresos[m].toLocaleString('es-AR')}</td>`); html += `<td style="color:red; font-weight:700;">$ ${gEE.toLocaleString('es-AR')}</td></tr>`;
+            html += `<tr style="background:#2c3e50;"><td style="color:white; font-weight:700;">NETO</td>`; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let n = (tC[m] + tm + extraTotales.ingresos[m]) - (extraTotales.egresos[m]); html += `<td style="color:white; background:${n>=0?'green':'red'};">$ ${n.toLocaleString('es-AR')}</td>`; }); let gN = (tIA + gEI) - (gEE); html += `<td style="color:white; background:${gN>=0?'green':'red'}; font-weight:800;">$ ${gN.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
             html += `<p style="font-size:.72rem; color:#7f8c8d; margin-top:6px;">El <b>NETO</b> ya incluye los ingresos y egresos cargados en la planilla de movimientos de abajo.</p>`;
 
             // Planilla editable de movimientos extraordinarios.
