@@ -131,6 +131,9 @@
         .mov-tot-row.mov-tot-ing td { bottom: 24px; }
         .mov-tot-row.mov-tot-egr td { bottom: 0; }
         /* Halo azul para la última fila agregada/editada (3s) */
+        .mov-fila-add-row td { padding: 6px !important; background: #fff; border-top: 1px dashed var(--borde); }
+        .mov-add-inline { width: 100%; padding: 8px; border: 1px dashed var(--verde); background: #f3fbf6; color: #1e8449; border-radius: 6px; font-weight: 700; font-size: .76rem; cursor: pointer; transition: .15s; }
+        .mov-add-inline:hover { background: var(--verde); color: #fff; border-style: solid; }
         .mov-fila.mov-fila-nueva td { animation: haloFilaNueva 3s ease-out; }
         @keyframes haloFilaNueva {
             0% { background: #d4e9fb; box-shadow: inset 0 0 0 2px #3498db; }
@@ -2386,6 +2389,7 @@
         let movFiltroConceptos = null; // null = todos; o Set de conceptos seleccionados
         let movPanelConceptosAbierto = false; // si está desplegado el panel de conceptos
         let movUltimoId = null; // id del último movimiento agregado/editado (para resaltar con halo)
+        let movFoco = null; // si vale 'fecha', tras render enfoca el campo fecha de la fila nueva (y no reordena ese render)
         let movGraficoAbierto = false; // panel de gráficos desplegado
         let movGraficoTipo = 'lineas'; // 'lineas' | 'burbujas'
         let movGraficoRango = 'anual'; // 'anual' | 'sem1' | 'sem2' | 'mensual'
@@ -2588,6 +2592,9 @@
             if(!cont) return;
             // Limpieza silenciosa de filas abandonadas (sin concepto ni monto), salvo la que se edita ahora.
             limpiarMovimientosVacios();
+            // La planilla siempre se muestra ordenada por fecha de menor a mayor,
+            // EXCEPTO justo cuando se agregó una fila nueva (va al final para completarla).
+            if(movFoco !== 'fecha') ordenarMovimientosPorFecha();
             let movs = asegurarMovimientos();
             let puede = puedeEditarCaja();
 
@@ -2767,6 +2774,11 @@
                 });
             }
 
+            // Fila con botón para agregar un movimiento desde el final de la tabla.
+            if(puede) {
+                h += `<tr class="mov-fila-add-row"><td colspan="${puede ? 7 : 6}"><button class="mov-add-inline" onclick="agregarMovimiento()">➕ Sumar fila nueva</button></td></tr>`;
+            }
+
             // Fila de totales por canal.
             h += `<tr class="mov-tot-row mov-tot-ing"><td colspan="3">TOTAL INGRESOS</td>`;
             CANALES_MOV.forEach(c => h += `<td>$ ${tot.ingreso[c.k].toLocaleString('es-AR')}</td>`);
@@ -2817,10 +2829,16 @@
                 if(fila) {
                     fila.classList.add('mov-fila-nueva');
                     try { fila.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch(e) {}
+                    // Si venimos de "agregar fila", posicionar el cursor en el campo fecha de esa fila.
+                    if(movFoco === 'fecha') {
+                        let inputFecha = fila.querySelector('.mov-c-fecha input');
+                        if(inputFecha) { try { inputFecha.focus(); inputFecha.select(); } catch(e) {} }
+                    }
                     setTimeout(() => { if(fila) fila.classList.remove('mov-fila-nueva'); }, 3000);
                 }
                 movUltimoId = null;
             }
+            movFoco = null;
         }
 
         function setMovVista(anual) { movVistaAnual = !!anual; renderPlanillaMovimientos(); }
@@ -3038,9 +3056,11 @@
             let movs = asegurarMovimientos();
             let mesNum = (movVistaAnual ? indiceMesActual : movMesSel) + 1;
             let nuevoId = 'mv_' + Date.now();
+            // La fila nueva se agrega al FINAL (no se reordena todavía): así el usuario la ve
+            // debajo de todo, carga su fecha, y recién ahí se reubica cronológicamente.
             movs.push({ id: nuevoId, fecha: `${movAnioSel}-${String(mesNum).padStart(2,'0')}-01`, concepto: '', tipo: 'ingreso', credicoop: 0, mp: 0, efectivo: 0 });
             movUltimoId = nuevoId;
-            ordenarMovimientosPorFecha();
+            movFoco = 'fecha'; // enfocar el campo fecha de la fila nueva tras renderizar
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderPlanillaMovimientos();
