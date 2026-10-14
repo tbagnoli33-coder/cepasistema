@@ -3274,8 +3274,8 @@
             else { input.classList.remove('mov-concepto-falta'); if(!input.value) input.placeholder = 'Concepto...'; }
         }
 
-        // Muestra/oculta el cartel de detección (taller para ingresos, servicio para egresos)
-        // mientras se escribe el concepto, SIN re-renderizar la tabla (para no perder el foco).
+        // Muestra/oculta el cartel de detección mientras se escribe el concepto, SIN re-renderizar
+        // (para no perder el foco). Detecta taller o servicio por el concepto, sin depender del tipo.
         function detectarCategoriaEnConcepto(idx, valor) {
             if(!puedeEditarCaja()) return;
             let movs = asegurarMovimientos();
@@ -3287,15 +3287,18 @@
             if(!celda) return;
             let avisoPrevio = celda.querySelector('.mov-taller-aviso');
             if(avisoPrevio) avisoPrevio.remove();
-            if(mv.tipo === 'ingreso') {
-                if(mv.noEsTaller) return;
-                let t = tallerDeConcepto(valor);
-                if(!t) return;
+            // Taller (si no fue excluido). Aplica como ingreso.
+            let t = !mv.noEsTaller ? tallerDeConcepto(valor) : null;
+            if(t) {
+                let aviso = (mv.tipo !== 'ingreso') ? ' <i>(se marcará como ingreso)</i>' : '';
                 let div = document.createElement('div');
                 div.className = 'mov-taller-aviso';
-                div.innerHTML = `<span>🎨 Detectado: <b>${escaparHTMLTexto(t)}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})">✗ No es taller</button></span>`;
+                div.innerHTML = `<span>🎨 Detectado: <b>${escaparHTMLTexto(t)}</b> → se carga a Rendiciones de talleres.${aviso}</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})">✗ No es taller</button></span>`;
                 celda.appendChild(div);
-            } else if(mv.tipo === 'egreso') {
+                return;
+            }
+            // Servicio (si no fue excluido). Aplica como egreso.
+            {
                 if(mv.noEsServicio) return;
                 let s = servicioFijoDeConcepto(valor, totalMov(mv));
                 if(!s) return;
@@ -3317,6 +3320,7 @@
             let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
             if(input) mv.concepto = input.value;
             mv.noEsTaller = false;
+            mv.tipo = 'ingreso'; // un taller siempre entra como ingreso
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderTablaFlujoCaja();
@@ -3361,6 +3365,7 @@
             let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
             if(input) mv.concepto = input.value;
             mv.noEsServicio = false;
+            mv.tipo = 'egreso'; // un servicio fijo siempre es un egreso
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderTablaFlujoCaja();
