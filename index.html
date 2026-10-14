@@ -904,6 +904,7 @@
         let ultimoCsvTextoMP = null, ultimoNombreArchivoMP = null, planesDetectadosMP = {};
         let payerIdPorNombreMP = {}; // nombre normalizado del suscriptor MP -> payer_id (para vinculación manual)
         let ordenTalleresContable = { col: null, dir: null };
+        let anioContableSel = new Date().getFullYear(); // año para las vistas contables (talleres/servicios/caja)
         let hayCambiosContables = false;
         const baseUsuarios = { "desarrollador": { id: 1, username: "desarrollador", password: "admin123", nombre: "Desarrollador", rol: "DESARROLLADOR" }, "equipo": { id: 2, username: "equipo", password: "1173630775", nombre: "Equipo", rol: "USUARIO" }, "tesoreria": { id: 3, username: "tesoreria", password: "belgrano", nombre: "Tesorería", rol: "TESORERIA" }, "lucia": { id: 4, username: "lucia", password: "simon", nombre: "Lucía", rol: "DESARROLLADOR" }, "contador": { id: 5, username: "contador", password: "Asociacion2026", nombre: "Contador", rol: "CONTADOR" } };
         let usuarioActual = null;
@@ -2364,7 +2365,9 @@
                 };
                 filasOrdenadas.sort((a, b) => { let ka = clave(a), kb = clave(b); if (typeof ka === 'string') return dir * ka.localeCompare(kb, 'es'); return dir * (ka - kb); });
             }
-            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 12px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div>`;
+            let aniosDisp = aniosConMovimientos();
+            let selAnio = `<div style="background:#fff; padding:10px; border-radius:8px;"><label style="font-size:.8rem; font-weight:700; color:var(--primary); margin-right:6px;">📅 Año:</label><select onchange="setAnioContable(this.value)" style="padding:5px 10px; border:1px solid var(--primary); border-radius:6px; font-family:inherit; font-weight:700; color:var(--primary); cursor:pointer;">${aniosDisp.map(a=>`<option value="${a}" ${a===anioContableSel?'selected':''}>${a}</option>`).join('')}</select></div>`;
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; gap:10px; flex-wrap:wrap;">${selAnio}<div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div>`;
             html += `<div class="aviso-solo-lectura"><b>👁️ Rendiciones de talleres — solo visualización.</b><p>Los montos de cada taller se arman <b>automáticamente</b> desde la planilla de ingresos y egresos (conceptos como "Taller Zumba", "Taller Cerámica trad.", etc.). <b>No se cargan acá:</b> cargalos en la planilla de la pestaña Caja. Lo único editable acá es <b>Horas/semana y Lugar</b> (para el cálculo de rendimiento), al expandir cada taller.</p></div>`;
             html += `<div class="contable-container"><table class="tabla-contable"><thead><tr>${thOrdenContable('taller', 'TALLER')}${thOrdenContable('socios', 'SOCIOS')}`;
             mesesContables.forEach(m => html += thOrdenContable(m, m)); html += thOrdenContable('anual', 'ANUAL') + `</tr></thead><tbody>`;
@@ -2531,6 +2534,7 @@
             let res = { ingresos: {}, egresos: {} };
             mesesLista.forEach(m => { res.ingresos[m] = 0; res.egresos[m] = 0; });
             movs.forEach(mv => {
+                if(anioDeMov(mv) !== anioContableSel) return; // solo el año seleccionado
                 let idx = mesDeMov(mv);
                 if(idx < 0) return;
                 let etiqueta = mesesLista[idx];
@@ -2599,6 +2603,7 @@
             movs.forEach(mv => {
                 if(mv.tipo !== 'ingreso') return;
                 if(mv.noEsTaller) return; // el usuario marcó que no es rendición de taller
+                if(anioDeMov(mv) !== anioContableSel) return; // solo el año seleccionado
                 let idx = mesDeMov(mv);
                 if(idx < 0) return;
                 let mesEt = mesesLista[idx];
@@ -2617,6 +2622,7 @@
             listaEgresos.forEach(e => { res[e] = {}; mesesLista.forEach(m => res[e][m] = 0); });
             movs.forEach(mv => {
                 if(mv.tipo !== 'egreso') return;
+                if(anioDeMov(mv) !== anioContableSel) return; // solo el año seleccionado
                 let idx = mesDeMov(mv);
                 if(idx < 0) return;
                 let serv = servicioFijoDeConcepto(mv.concepto, totalMov(mv));
@@ -3614,6 +3620,7 @@
         function toggleTallerChart(t) { let sId = t.replace(/[^a-zA-Z0-9]/g, ''); let r = document.getElementById('expand-' + sId); if(r.classList.contains('open')) { r.classList.remove('open'); expandedTalleres.delete(t); } else { r.classList.add('open'); expandedTalleres.add(t); renderChart(t); } }
         function renderChart(t) { let c = document.getElementById('chart-' + t.replace(/[^a-zA-Z0-9]/g, '')); if(!c) return; if(chartInstances[t]) chartInstances[t].destroy(); let mt = totalesTalleresDesdeMovimientos(); chartInstances[t] = new Chart(c.getContext('2d'), { type: 'line', data: { labels: mesesContables, datasets: [{ label: '$', data: mesesContables.map(m => (mt[t] && mt[t][m]) || 0), borderColor: coloresTalleres[t] || '#3498db', backgroundColor: (coloresTalleres[t] || '#3498db') + '20', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
         function actualizarMontoContable(t, m, v) { marcarCambiosContables(); datosContables[t][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
+        function setAnioContable(a) { anioContableSel = parseInt(a, 10) || new Date().getFullYear(); renderTablaTalleres(); renderTablaFlujoCaja(); }
 
         // ==========================================
         // MÓDULO CALENDARIO (ALQUILERES)
