@@ -114,7 +114,9 @@
         .mov-fila .mov-c-concepto { background: #fff; text-align: left; }
         .mov-fila .mov-c-concepto input { width: 100%; border: none; background: transparent; font-family: inherit; font-size: .76rem; padding: 2px; }
         .mov-c-concepto { position: relative; }
-        .mov-taller-aviso { margin-top: 3px; background: #eef6fb; border: 1px solid #aed6f1; border-radius: 5px; padding: 4px 7px; font-size: .66rem; color: #2471a3; display: flex; flex-direction: column; gap: 4px; }
+        .mov-taller-aviso { margin-top: 3px; background: #eef6fb; border: 1px solid #aed6f1; border-radius: 5px; padding: 4px 7px; font-size: .66rem; color: #2471a3; display: flex; flex-direction: column; gap: 4px; animation: avisoDeteccion .28s ease-out; transform-origin: top; }
+        @keyframes avisoDeteccion { 0% { opacity: 0; transform: translateY(-5px) scaleY(.9); } 100% { opacity: 1; transform: translateY(0) scaleY(1); } }
+        .mov-taller-aviso.mov-serv-aviso { background: #fff8e1; border-color: #f0d060; color: #b9770e; }
         .mov-taller-aviso.mov-taller-excluido { background: #f4f4f4; border-color: #ddd; color: #777; flex-direction: row; align-items: center; justify-content: space-between; }
         .mov-taller-btns { display: flex; gap: 5px; }
         .mov-taller-ok, .mov-taller-no { border: none; border-radius: 4px; font-size: .64rem; font-weight: 700; padding: 2px 7px; cursor: pointer; }
@@ -2622,6 +2624,7 @@
             listaEgresos.forEach(e => { res[e] = {}; mesesLista.forEach(m => res[e][m] = 0); });
             movs.forEach(mv => {
                 if(mv.tipo !== 'egreso') return;
+                if(mv.noEsServicio) return; // el usuario marcó que no es un servicio fijo
                 if(anioDeMov(mv) !== anioContableSel) return; // solo el año seleccionado
                 let idx = mesDeMov(mv);
                 if(idx < 0) return;
@@ -2885,14 +2888,17 @@
                     h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}" data-mov-id="${mv.id}">`;
                     h += `<td class="mov-c-fecha"><input type="text" inputmode="numeric" placeholder="DD/MM/AA" value="${fechaISOaDDMMAA(mv.fecha)}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
                     let faltaConcepto = (totalMov(mv) !== 0) && !((mv.concepto || '').trim());
-                    let tallerDet = (mv.tipo === 'ingreso' && !mv.noEsTaller) ? tallerDeConcepto(mv.concepto) : null;
-                    let cartelTaller = '';
-                    if(tallerDet) {
-                        cartelTaller = `<div class="mov-taller-aviso"><span>🎨 Detectado: <b>${tallerDet}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})" title="Es correcto">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})" title="No es un taller">✗ No es taller</button></span></div>`;
-                    } else if(mv.tipo === 'ingreso' && mv.noEsTaller) {
-                        cartelTaller = `<div class="mov-taller-aviso mov-taller-excluido"><span>🚫 Marcado como "no es taller" (no suma a Rendiciones).</span><button class="mov-taller-ok" onclick="revertirNoEsTaller(${idx})">Deshacer</button></div>`;
+                    let cartelDet = '';
+                    if(mv.tipo === 'ingreso') {
+                        let tallerDet = !mv.noEsTaller ? tallerDeConcepto(mv.concepto) : null;
+                        if(tallerDet) cartelDet = `<div class="mov-taller-aviso"><span>🎨 Detectado: <b>${tallerDet}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})" title="Es correcto">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})" title="No es un taller">✗ No es taller</button></span></div>`;
+                        else if(mv.noEsTaller) cartelDet = `<div class="mov-taller-aviso mov-taller-excluido"><span>🚫 Marcado como "no es taller".</span><button class="mov-taller-ok" onclick="revertirNoEsTaller(${idx})">Deshacer</button></div>`;
+                    } else if(mv.tipo === 'egreso') {
+                        let servDet = !mv.noEsServicio ? servicioFijoDeConcepto(mv.concepto, totalMov(mv)) : null;
+                        if(servDet) cartelDet = `<div class="mov-taller-aviso mov-serv-aviso"><span>🔌 Detectado: <b>${servDet}</b> → se carga a Servicios / Egresos fijos.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarServicioMov(${idx})" title="Es correcto">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsServicio(${idx})" title="No es un servicio">✗ No es servicio</button></span></div>`;
+                        else if(mv.noEsServicio) cartelDet = `<div class="mov-taller-aviso mov-taller-excluido"><span>🚫 Marcado como "no es servicio".</span><button class="mov-taller-ok" onclick="revertirNoEsServicio(${idx})">Deshacer</button></div>`;
                     }
-                    h += `<td class="mov-c-concepto"><input type="text" class="${faltaConcepto ? 'mov-concepto-falta' : ''}" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="${faltaConcepto ? '⚠️ Falta concepto' : 'Concepto...'}" ${puede?'':'disabled'} oninput="detectarTallerEnConcepto(${idx}, this.value)" onchange="editarMovimiento(${idx},'concepto',this.value)">${cartelTaller}</td>`;
+                    h += `<td class="mov-c-concepto"><input type="text" class="${faltaConcepto ? 'mov-concepto-falta' : ''}" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="${faltaConcepto ? '⚠️ Falta concepto' : 'Concepto...'}" ${puede?'':'disabled'} oninput="detectarCategoriaEnConcepto(${idx}, this.value)" onchange="editarMovimiento(${idx},'concepto',this.value)">${cartelDet}</td>`;
                     h += `<td class="mov-c-tipo"><select class="${esIng ? 'tipo-ing' : 'tipo-egr'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'tipo',this.value)"><option value="ingreso" ${esIng?'selected':''}>Ingreso</option><option value="egreso" ${!esIng?'selected':''}>Egreso</option></select></td>`;
                     CANALES_MOV.forEach(c => {
                         h += `<td class="mov-c-monto"><input type="number" value="${mv[c.k] ? mv[c.k] : ''}" placeholder="0" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'${c.k}',this.value)"></td>`;
@@ -3268,9 +3274,9 @@
             else { input.classList.remove('mov-concepto-falta'); if(!input.value) input.placeholder = 'Concepto...'; }
         }
 
-        // Muestra/oculta el cartel de "taller detectado" mientras se escribe el concepto,
-        // SIN re-renderizar la tabla (para no perder el foco del input).
-        function detectarTallerEnConcepto(idx, valor) {
+        // Muestra/oculta el cartel de detección (taller para ingresos, servicio para egresos)
+        // mientras se escribe el concepto, SIN re-renderizar la tabla (para no perder el foco).
+        function detectarCategoriaEnConcepto(idx, valor) {
             if(!puedeEditarCaja()) return;
             let movs = asegurarMovimientos();
             let mv = movs[idx];
@@ -3281,13 +3287,23 @@
             if(!celda) return;
             let avisoPrevio = celda.querySelector('.mov-taller-aviso');
             if(avisoPrevio) avisoPrevio.remove();
-            if(mv.noEsTaller) return; // si ya lo excluyó, no re-mostramos acá
-            let t = (mv.tipo === 'ingreso') ? tallerDeConcepto(valor) : null;
-            if(!t) return;
-            let div = document.createElement('div');
-            div.className = 'mov-taller-aviso';
-            div.innerHTML = `<span>🎨 Detectado: <b>${escaparHTMLTexto(t)}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})">✗ No es taller</button></span>`;
-            celda.appendChild(div);
+            if(mv.tipo === 'ingreso') {
+                if(mv.noEsTaller) return;
+                let t = tallerDeConcepto(valor);
+                if(!t) return;
+                let div = document.createElement('div');
+                div.className = 'mov-taller-aviso';
+                div.innerHTML = `<span>🎨 Detectado: <b>${escaparHTMLTexto(t)}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})">✗ No es taller</button></span>`;
+                celda.appendChild(div);
+            } else if(mv.tipo === 'egreso') {
+                if(mv.noEsServicio) return;
+                let s = servicioFijoDeConcepto(valor, totalMov(mv));
+                if(!s) return;
+                let div = document.createElement('div');
+                div.className = 'mov-taller-aviso mov-serv-aviso';
+                div.innerHTML = `<span>🔌 Detectado: <b>${escaparHTMLTexto(s)}</b> → se carga a Servicios / Egresos fijos.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarServicioMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsServicio(${idx})">✗ No es servicio</button></span>`;
+                celda.appendChild(div);
+            }
         }
 
         // "Es correcto": confirma (guarda el concepto) y re-renderiza para reflejar el monto en Talleres.
@@ -3329,6 +3345,47 @@
             let mv = movs[idx];
             if(!mv) return;
             delete mv.noEsTaller;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+
+        // --- Validación análoga para SERVICIOS (egresos fijos) ---
+        function confirmarServicioMov(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
+            if(input) mv.concepto = input.value;
+            mv.noEsServicio = false;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+        function marcarNoEsServicio(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
+            if(input) mv.concepto = input.value;
+            mv.noEsServicio = true;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+        function revertirNoEsServicio(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            delete mv.noEsServicio;
             marcarCambiosContables();
             localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
             renderTablaFlujoCaja();
