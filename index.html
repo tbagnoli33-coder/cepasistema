@@ -113,6 +113,15 @@
         .mov-fila .mov-c-fecha input { background: transparent; border: none; font-family: inherit; font-size: .74rem; width: 112px; text-align: center; }
         .mov-fila .mov-c-concepto { background: #fff; text-align: left; }
         .mov-fila .mov-c-concepto input { width: 100%; border: none; background: transparent; font-family: inherit; font-size: .76rem; padding: 2px; }
+        .mov-c-concepto { position: relative; }
+        .mov-taller-aviso { margin-top: 3px; background: #eef6fb; border: 1px solid #aed6f1; border-radius: 5px; padding: 4px 7px; font-size: .66rem; color: #2471a3; display: flex; flex-direction: column; gap: 4px; }
+        .mov-taller-aviso.mov-taller-excluido { background: #f4f4f4; border-color: #ddd; color: #777; flex-direction: row; align-items: center; justify-content: space-between; }
+        .mov-taller-btns { display: flex; gap: 5px; }
+        .mov-taller-ok, .mov-taller-no { border: none; border-radius: 4px; font-size: .64rem; font-weight: 700; padding: 2px 7px; cursor: pointer; }
+        .mov-taller-ok { background: #27ae60; color: #fff; }
+        .mov-taller-ok:hover { background: #219653; }
+        .mov-taller-no { background: #fdeaea; color: #c0392b; border: 1px solid #e6a6a0; }
+        .mov-taller-no:hover { background: #c0392b; color: #fff; }
         .mov-fila .mov-c-concepto input.mov-concepto-falta { background: #fdeaea; outline: 1px solid #e6a6a0; border-radius: 3px; }
         .mov-fila .mov-c-concepto input.mov-concepto-falta::placeholder { color: #c0392b; opacity: .8; }
         .mov-fila .mov-c-tipo select { border: none; background: transparent; font-family: inherit; font-size: .74rem; cursor: pointer; }
@@ -2339,6 +2348,9 @@
             if (!datosContables) datosContables = inicializarDatosContables();
             if (!datosContables["_GLOBAL_"]) datosContables["_GLOBAL_"] = { precioSalon: 60000, precioSala: 45000 };
             listaTalleres.forEach(t => { if(!datosContables[t]) datosContables[t] = {}; if(datosContables[t].horas === undefined) datosContables[t].horas = 0; if(datosContables[t].espacio === undefined) datosContables[t].espacio = "Ninguno"; mesesContables.forEach(m => { if(datosContables[t][m] === undefined) datosContables[t][m] = 0; }); });
+            // Montos por taller/mes DERIVADOS de la planilla de movimientos (solo lectura).
+            let montosTaller = totalesTalleresDesdeMovimientos();
+            let montoT = (t, m) => (montosTaller[t] && montosTaller[t][m]) ? montosTaller[t][m] : 0;
             let inscriptosActivos = {}; listaTalleres.forEach(t => inscriptosActivos[t] = 0);
             sociosData.forEach(s => { if (s.estadoCalculado !== 'inactivo') s.talleres.forEach(t => { if (inscriptosActivos[t] !== undefined) inscriptosActivos[t]++; }); });
             let filasOrdenadas = listaTalleres.slice();
@@ -2347,24 +2359,26 @@
                 let clave = (t) => {
                     if (col === 'taller') return t;
                     if (col === 'socios') return inscriptosActivos[t] || 0;
-                    if (col === 'anual') return mesesContables.reduce((s, m) => s + (datosContables[t][m] || 0), 0);
-                    return datosContables[t][col] || 0;
+                    if (col === 'anual') return mesesContables.reduce((s, m) => s + montoT(t, m), 0);
+                    return montoT(t, col);
                 };
                 filasOrdenadas.sort((a, b) => { let ka = clave(a), kb = clave(b); if (typeof ka === 'string') return dir * ka.localeCompare(kb, 'es'); return dir * (ka - kb); });
             }
-            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 20px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div><div class="contable-container"><table class="tabla-contable"><thead><tr>${thOrdenContable('taller', 'TALLER')}${thOrdenContable('socios', 'SOCIOS')}`;
+            let html = `<div style="display:flex; justify-content:space-between; margin-bottom: 12px;"><div style="background:#fff; padding:10px; border-radius:8px;">Salón: $<input type="number" id="cfg-salon" value="${datosContables["_GLOBAL_"].precioSalon}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSalon', this.value)" style="width:80px;"> Sala: $<input type="number" id="cfg-sala" value="${datosContables["_GLOBAL_"].precioSala}" oninput="marcarCambiosContables()" onchange="actualizarPrecioGlobal('precioSala', this.value)" style="width:80px;"></div></div>`;
+            html += `<div class="aviso-solo-lectura"><b>👁️ Rendiciones de talleres — solo visualización.</b><p>Los montos de cada taller se arman <b>automáticamente</b> desde la planilla de ingresos y egresos (conceptos como "Taller Zumba", "Taller Cerámica trad.", etc.). <b>No se cargan acá:</b> cargalos en la planilla de la pestaña Caja. Lo único editable acá es <b>Horas/semana y Lugar</b> (para el cálculo de rendimiento), al expandir cada taller.</p></div>`;
+            html += `<div class="contable-container"><table class="tabla-contable"><thead><tr>${thOrdenContable('taller', 'TALLER')}${thOrdenContable('socios', 'SOCIOS')}`;
             mesesContables.forEach(m => html += thOrdenContable(m, m)); html += thOrdenContable('anual', 'ANUAL') + `</tr></thead><tbody>`;
             let totalesMes = { "Mar":0, "Abr":0, "May":0, "Jun":0, "Jul":0, "Ago":0, "Sep":0, "Oct":0, "Nov":0, "Dic":0 }; let granTotalAnual = 0;
             filasOrdenadas.forEach(taller => {
                 let safeId = taller.replace(/[^a-zA-Z0-9]/g, ''); let cant = inscriptosActivos[taller] || 0;
                 html += `<tr class="clickable-row" onclick="toggleTallerChart('${taller}')"><td style="font-weight:600;">${taller}</td><td>${cant}</td>`;
                 let totalT = 0; let mesesD = 0;
-                mesesContables.forEach((mes) => { let val = datosContables[taller][mes] || 0; totalT += val; totalesMes[mes] += val; if(val > 0) mesesD++; html += `<td class="celda-monto" onclick="event.stopPropagation()"><input type="number" id="cont-${safeId}-${mes}" class="input-monto" value="${val > 0 ? val : ''}" oninput="marcarCambiosContables()" onchange="actualizarMontoContable('${taller}', '${mes}', this.value)" onclick="event.stopPropagation()"></td>`; });
+                mesesContables.forEach((mes) => { let val = montoT(taller, mes); totalT += val; totalesMes[mes] += val; if(val > 0) mesesD++; html += `<td class="celda-monto" style="text-align:right; color:${val>0?'var(--primary)':'#bbb'};" onclick="event.stopPropagation()">${val>0?'$ '+val.toLocaleString('es-AR'):'-'}</td>`; });
                 granTotalAnual += totalT;
                 html += `<td style="font-weight:700;">$ ${totalT.toLocaleString('es-AR')}</td></tr>`;
                 let prom = mesesD > 0 ? Math.round(totalT / mesesD) : 0, eA = datosContables[taller].espacio, hs = datosContables[taller].horas, pH = eA === "Salon" ? datosContables["_GLOBAL_"].precioSalon : (eA === "Sala" ? datosContables["_GLOBAL_"].precioSala : 0), cM = hs * 4 * pH, bM = prom - cM;
                 let mesUlt = null, valUlt = 0;
-                for (let i = mesesContables.length - 1; i >= 0; i--) { let v = datosContables[taller][mesesContables[i]] || 0; if (v > 0) { mesUlt = mesesContables[i]; valUlt = v; break; } }
+                for (let i = mesesContables.length - 1; i >= 0; i--) { let v = montoT(taller, mesesContables[i]); if (v > 0) { mesUlt = mesesContables[i]; valUlt = v; break; } }
                 let gPP = 0, detalleGPP = '';
                 if (!mesUlt) { detalleGPP = cant > 0 ? `Sin montos cargados · ${cant} socios` : 'Sin montos ni socios'; }
                 else if (cant <= 0) { detalleGPP = `Último mes (${mesUlt}): $${valUlt.toLocaleString('es-AR')} · sin socios`; }
@@ -2547,6 +2561,54 @@
             return null;
         }
 
+        // Glosario: a qué taller (de listaTalleres) corresponde el concepto de un ingreso.
+        // Devuelve el nombre exacto del taller o null. Cuida los casos ambiguos (cerámicas, dibujo).
+        function tallerDeConcepto(concepto) {
+            let c = normalizarNombre(concepto || '').toLowerCase();
+            if(!c) return null;
+            const tiene = (...p) => p.some(x => c.indexOf(x) !== -1);
+            // Cerámicas: hay 3. Priorizo por palabra distintiva.
+            if(tiene('ceramica') || tiene('cermica')) {
+                if(tiene('kid', 'niñ', 'nin', 'infantil')) return 'CERÁMICA KIDS';
+                if(tiene('raiz', 'raíz', 'precolomb', 'precolombina')) return 'CERÁMICA RAÍZ';
+                if(tiene('trad', 'tradic')) return 'CERÁMICA TRADIC.';
+                return 'CERÁMICA TRADIC.'; // "Taller cerámica" a secas => la tradicional (la más común)
+            }
+            // Dibujo: kids vs adultos.
+            if(tiene('dibujo')) {
+                if(tiene('kid', 'niñ', 'nin', 'infantil')) return 'DIBUJO KIDS';
+                if(tiene('adult')) return 'DIBUJO ADULTOS/AS';
+                return 'DIBUJO KIDS';
+            }
+            if(tiene('zumba')) return 'ZUMBA';
+            if(tiene('folklore', 'folclore')) return 'FOLKLORE';
+            if(tiene('yoga')) return 'YOGA';
+            if(tiene('escritura')) return 'ESCRITURA';
+            if(tiene('afro', 'danza afro')) return 'AFRO';
+            if(tiene('ingles', 'inglés')) return 'INGLÉS ADULTS';
+            if(tiene('lectura', 'grupo de lectura')) return 'GRUPO LECTURA';
+            return null;
+        }
+
+        // Totales de ingresos por taller y por mes, DERIVADOS de los movimientos de ingreso.
+        // (La tabla de talleres pasa a ser un espejo de solo lectura de la planilla.)
+        function totalesTalleresDesdeMovimientos() {
+            let movs = asegurarMovimientos();
+            let res = {}; // { TALLER: { "Ene":0, ... } }
+            listaTalleres.forEach(t => { res[t] = {}; mesesContables.forEach(m => res[t][m] = 0); });
+            movs.forEach(mv => {
+                if(mv.tipo !== 'ingreso') return;
+                if(mv.noEsTaller) return; // el usuario marcó que no es rendición de taller
+                let idx = mesDeMov(mv);
+                if(idx < 0) return;
+                let mesEt = mesesLista[idx];
+                if(!mesesContables.includes(mesEt)) return; // los talleres solo usan Mar..Dic
+                let t = tallerDeConcepto(mv.concepto);
+                if(t && res[t]) res[t][mesEt] += totalMov(mv);
+            });
+            return res;
+        }
+
         // Totales de servicios fijos por mes, DERIVADOS de los movimientos de egreso.
         // (La tabla de egresos fijos pasa a ser un espejo de solo lectura de la planilla.)
         function totalesServiciosDesdeMovimientos() {
@@ -2611,9 +2673,9 @@
             html += `<p style="font-size:.72rem; color:#7f8c8d; margin-top:6px;">Ya está incluida en los egresos del neto; no se suma dos veces.</p>`;
             
             html += `<div class="contable-container" style="margin-top:20px; border:2px solid #ccc;"><table class="tabla-contable"><thead><tr><th>MÉTRICA</th>`; mesesLista.forEach(m => html += `<th>${m}</th>`); html += `<th>AÑO</th></tr></thead><tbody>`;
-            html += `<tr><td style="color:green; font-weight:700;">INGRESOS BASE</td>`; let tIA = 0; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let tIn = tC[m] + tm; tIA += tIn; html += `<td style="color:green;">$ ${tIn.toLocaleString('es-AR')}</td>`; }); html += `<td style="color:green; font-weight:700;">$ ${tIA.toLocaleString('es-AR')}</td></tr>`;
+            html += `<tr><td style="color:green; font-weight:700;">INGRESOS BASE</td>`; let tIA = 0; mesesLista.forEach(m => { let tIn = tC[m] + extraTotales.ingresos[m]; tIA += tIn; html += `<td style="color:green;">$ ${tIn.toLocaleString('es-AR')}</td>`; }); html += `<td style="color:green; font-weight:700;">$ ${tIA.toLocaleString('es-AR')}</td></tr>`;
             html += `<tr><td style="color:red; font-weight:700;">EGRESOS BASE</td>`; mesesLista.forEach(m => html += `<td style="color:red;">$ ${extraTotales.egresos[m].toLocaleString('es-AR')}</td>`); html += `<td style="color:red; font-weight:700;">$ ${gEE.toLocaleString('es-AR')}</td></tr>`;
-            html += `<tr style="background:#2c3e50;"><td style="color:white; font-weight:700;">NETO</td>`; mesesLista.forEach(m => { let tm = 0; if(datosContables && mesesContables.includes(m)) listaTalleres.forEach(t => tm += (datosContables[t][m] || 0)); let n = (tC[m] + tm + extraTotales.ingresos[m]) - (extraTotales.egresos[m]); html += `<td style="color:white; background:${n>=0?'green':'red'};">$ ${n.toLocaleString('es-AR')}</td>`; }); let gN = (tIA + gEI) - (gEE); html += `<td style="color:white; background:${gN>=0?'green':'red'}; font-weight:800;">$ ${gN.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
+            html += `<tr style="background:#2c3e50;"><td style="color:white; font-weight:700;">NETO</td>`; mesesLista.forEach(m => { let n = (tC[m] + extraTotales.ingresos[m]) - (extraTotales.egresos[m]); html += `<td style="color:white; background:${n>=0?'green':'red'};">$ ${n.toLocaleString('es-AR')}</td>`; }); let gN = (tIA) - (gEE); html += `<td style="color:white; background:${gN>=0?'green':'red'}; font-weight:800;">$ ${gN.toLocaleString('es-AR')}</td></tr></tbody></table></div>`;
             html += `<p style="font-size:.72rem; color:#7f8c8d; margin-top:6px;">El <b>NETO</b> ya incluye los ingresos y egresos cargados en la planilla de movimientos de abajo.</p>`;
 
             // Planilla editable de movimientos extraordinarios.
@@ -2817,7 +2879,14 @@
                     h += `<tr class="mov-fila ${esIng ? 'mov-ing' : 'mov-egr'}" data-mov-id="${mv.id}">`;
                     h += `<td class="mov-c-fecha"><input type="text" inputmode="numeric" placeholder="DD/MM/AA" value="${fechaISOaDDMMAA(mv.fecha)}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'fecha',this.value)"></td>`;
                     let faltaConcepto = (totalMov(mv) !== 0) && !((mv.concepto || '').trim());
-                    h += `<td class="mov-c-concepto"><input type="text" class="${faltaConcepto ? 'mov-concepto-falta' : ''}" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="${faltaConcepto ? '⚠️ Falta concepto' : 'Concepto...'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'concepto',this.value)"></td>`;
+                    let tallerDet = (mv.tipo === 'ingreso' && !mv.noEsTaller) ? tallerDeConcepto(mv.concepto) : null;
+                    let cartelTaller = '';
+                    if(tallerDet) {
+                        cartelTaller = `<div class="mov-taller-aviso"><span>🎨 Detectado: <b>${tallerDet}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})" title="Es correcto">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})" title="No es un taller">✗ No es taller</button></span></div>`;
+                    } else if(mv.tipo === 'ingreso' && mv.noEsTaller) {
+                        cartelTaller = `<div class="mov-taller-aviso mov-taller-excluido"><span>🚫 Marcado como "no es taller" (no suma a Rendiciones).</span><button class="mov-taller-ok" onclick="revertirNoEsTaller(${idx})">Deshacer</button></div>`;
+                    }
+                    h += `<td class="mov-c-concepto"><input type="text" class="${faltaConcepto ? 'mov-concepto-falta' : ''}" value="${escaparHTMLTexto(mv.concepto||'')}" placeholder="${faltaConcepto ? '⚠️ Falta concepto' : 'Concepto...'}" ${puede?'':'disabled'} oninput="detectarTallerEnConcepto(${idx}, this.value)" onchange="editarMovimiento(${idx},'concepto',this.value)">${cartelTaller}</td>`;
                     h += `<td class="mov-c-tipo"><select class="${esIng ? 'tipo-ing' : 'tipo-egr'}" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'tipo',this.value)"><option value="ingreso" ${esIng?'selected':''}>Ingreso</option><option value="egreso" ${!esIng?'selected':''}>Egreso</option></select></td>`;
                     CANALES_MOV.forEach(c => {
                         h += `<td class="mov-c-monto"><input type="number" value="${mv[c.k] ? mv[c.k] : ''}" placeholder="0" ${puede?'':'disabled'} onchange="editarMovimiento(${idx},'${c.k}',this.value)"></td>`;
@@ -3193,6 +3262,73 @@
             else { input.classList.remove('mov-concepto-falta'); if(!input.value) input.placeholder = 'Concepto...'; }
         }
 
+        // Muestra/oculta el cartel de "taller detectado" mientras se escribe el concepto,
+        // SIN re-renderizar la tabla (para no perder el foco del input).
+        function detectarTallerEnConcepto(idx, valor) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            if(!fila) return;
+            let celda = fila.querySelector('.mov-c-concepto');
+            if(!celda) return;
+            let avisoPrevio = celda.querySelector('.mov-taller-aviso');
+            if(avisoPrevio) avisoPrevio.remove();
+            if(mv.noEsTaller) return; // si ya lo excluyó, no re-mostramos acá
+            let t = (mv.tipo === 'ingreso') ? tallerDeConcepto(valor) : null;
+            if(!t) return;
+            let div = document.createElement('div');
+            div.className = 'mov-taller-aviso';
+            div.innerHTML = `<span>🎨 Detectado: <b>${escaparHTMLTexto(t)}</b> → se carga a Rendiciones de talleres.</span><span class="mov-taller-btns"><button class="mov-taller-ok" onclick="confirmarTallerMov(${idx})">✓ Es correcto</button><button class="mov-taller-no" onclick="marcarNoEsTaller(${idx})">✗ No es taller</button></span>`;
+            celda.appendChild(div);
+        }
+
+        // "Es correcto": confirma (guarda el concepto) y re-renderiza para reflejar el monto en Talleres.
+        function confirmarTallerMov(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            // Tomar el valor actual del input por si cambió.
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
+            if(input) mv.concepto = input.value;
+            mv.noEsTaller = false;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+
+        // "No es taller": marca el movimiento para que NO cuente en Rendiciones aunque matchee.
+        function marcarNoEsTaller(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            let fila = document.querySelector('.mov-fila[data-mov-id="' + mv.id + '"]');
+            let input = fila ? fila.querySelector('.mov-c-concepto input') : null;
+            if(input) mv.concepto = input.value;
+            mv.noEsTaller = true;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+
+        function revertirNoEsTaller(idx) {
+            if(!puedeEditarCaja()) return;
+            let movs = asegurarMovimientos();
+            let mv = movs[idx];
+            if(!mv) return;
+            delete mv.noEsTaller;
+            marcarCambiosContables();
+            localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables));
+            renderTablaFlujoCaja();
+            if(typeof renderTablaTalleres === 'function') renderTablaTalleres();
+        }
+
         function eliminarMovimiento(idx) {
             if(!puedeEditarCaja()) { alert('Acceso denegado.'); return; }
             let movs = asegurarMovimientos();
@@ -3476,7 +3612,7 @@
         function actualizarEspacioTaller(t, c, v) { marcarCambiosContables(); if(c === 'horas') datosContables[t].horas = parseFloat(v) || 0; else datosContables[t].espacio = v; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
         function actualizarMontoEgreso(e, m, v) { marcarCambiosContables(); datosEgresos[e][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_egresos', JSON.stringify(datosEgresos)); let a = document.activeElement ? document.activeElement.id : null; renderTablaFlujoCaja(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
         function toggleTallerChart(t) { let sId = t.replace(/[^a-zA-Z0-9]/g, ''); let r = document.getElementById('expand-' + sId); if(r.classList.contains('open')) { r.classList.remove('open'); expandedTalleres.delete(t); } else { r.classList.add('open'); expandedTalleres.add(t); renderChart(t); } }
-        function renderChart(t) { let c = document.getElementById('chart-' + t.replace(/[^a-zA-Z0-9]/g, '')); if(!c) return; if(chartInstances[t]) chartInstances[t].destroy(); chartInstances[t] = new Chart(c.getContext('2d'), { type: 'line', data: { labels: mesesContables, datasets: [{ label: '$', data: mesesContables.map(m => datosContables[t][m] || 0), borderColor: coloresTalleres[t] || '#3498db', backgroundColor: (coloresTalleres[t] || '#3498db') + '20', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
+        function renderChart(t) { let c = document.getElementById('chart-' + t.replace(/[^a-zA-Z0-9]/g, '')); if(!c) return; if(chartInstances[t]) chartInstances[t].destroy(); let mt = totalesTalleresDesdeMovimientos(); chartInstances[t] = new Chart(c.getContext('2d'), { type: 'line', data: { labels: mesesContables, datasets: [{ label: '$', data: mesesContables.map(m => (mt[t] && mt[t][m]) || 0), borderColor: coloresTalleres[t] || '#3498db', backgroundColor: (coloresTalleres[t] || '#3498db') + '20', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
         function actualizarMontoContable(t, m, v) { marcarCambiosContables(); datosContables[t][m] = parseInt(v) || 0; localStorage.setItem('cepas_datos_contables', JSON.stringify(datosContables)); let a = document.activeElement ? document.activeElement.id : null; renderTablaTalleres(); if(a && document.getElementById(a)) document.getElementById(a).focus(); }
 
         // ==========================================
